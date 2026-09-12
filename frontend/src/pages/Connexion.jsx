@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LogIn, GraduationCap, Eye, EyeOff } from 'lucide-react'
+import { API_URL } from '../api'
 
 function Connexion({ onConnexion }) {
   const [matricule, setMatricule] = useState('')
@@ -22,7 +23,7 @@ function Connexion({ onConnexion }) {
       setChargement(true)
 
       const response = await fetch(
-        'http://localhost:5000/api/auth/connexion',
+  `${API_URL}/api/auth/connexion`,
         {
           method: 'POST',
           headers: {

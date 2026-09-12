@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { API_URL } from '../api'
 import {
   PlusCircle,
   Search,
@@ -58,7 +59,7 @@ function Preparations() {
       }
 
       const url =
-        `http://localhost:5000/api/cours?enseignant_id=${utilisateur.id}`
+        `${API_URL}/api/cours?enseignant_id=${utilisateur.id}`
 
       console.log('URL APPELÉE :', url)
 
@@ -152,7 +153,7 @@ function Preparations() {
 
     try {
       const reponse = await fetch(
-        `http://localhost:5000/api/cours/${id}`,
+        `${API_URL}/api/cours/${id}`,
         {
           method: 'DELETE',
         }

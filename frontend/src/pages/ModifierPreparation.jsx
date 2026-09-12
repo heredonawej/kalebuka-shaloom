@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { API_URL } from '../api'
 import {
   ArrowLeft,
   Save,
@@ -92,7 +93,7 @@ function ModifierPreparation() {
       }
 
       const reponse = await fetch(
-        `http://localhost:5000/api/cours?enseignant_id=${utilisateur.id}`
+  `${API_URL}/api/cours?enseignant_id=${utilisateurConnecte.id}`
       )
 
       const donnees = await reponse.json()
@@ -364,7 +365,7 @@ function ModifierPreparation() {
       // ========================================
 
       const reponse = await fetch(
-        `http://localhost:5000/api/cours/${id}`,
+        (`${API_URL}/api/cours/${id}`),
         {
           method: 'PUT',
 
@@ -487,7 +488,7 @@ function ModifierPreparation() {
 
         const reponseSoumission =
           await fetch(
-            `http://localhost:5000/api/cours/${id}/soumettre`,
+            `${API_URL}/api/cours/${id}/soumettre`,
             {
               method: 'POST',
             }

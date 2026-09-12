@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { API_URL } from '../api'
 import {
   UserPlus,
   Users,
@@ -42,11 +43,9 @@ function EnseignantsAdmin() {
       const [enseignantsResponse, classesResponse] =
         await Promise.all([
           fetch(
-            'http://localhost:5000/api/admin/enseignants'
+            '${API_URL}/api/admin/enseignants'
           ),
-          fetch(
-            'http://localhost:5000/api/classes'
-          ),
+          fetch(`${API_URL}/api/classes`),
         ])
 
       const enseignantsData =
@@ -109,8 +108,8 @@ function EnseignantsAdmin() {
       setCreation(true)
 
       const response = await fetch(
-        'http://localhost:5000/api/admin/enseignants',
-        {
+  `${API_URL}/api/admin/enseignants`,
+  {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

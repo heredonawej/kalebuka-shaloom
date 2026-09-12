@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { API_URL } from '../api'
 import {
   Users,
   Search,
@@ -24,9 +25,8 @@ function Eleves() {
   useEffect(() => {
     const chargerClasses = async () => {
       try {
-        const reponse = await fetch(
-          'http://localhost:5000/api/classes'
-        )
+        const reponse = await fetch
+          (`${API_URL}/api/classes`)
 
         const donnees = await reponse.json()
 
@@ -54,7 +54,7 @@ function Eleves() {
 
       try {
         const reponse = await fetch(
-          `http://localhost:5000/api/classes/${classeSelectionnee}/eleves`
+          `${API_URL}/api/classes/${classeSelectionnee}/eleves`
         )
 
         const donnees = await reponse.json()
@@ -139,7 +139,7 @@ function Eleves() {
   try {
 
     const reponse = await fetch(
-      'http://localhost:5000/api/presences',
+      '${API_URL}/api/presences',
       {
         method: 'POST',
 

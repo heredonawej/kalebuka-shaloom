@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { API_URL } from '../api'
 import {
   Users,
   GraduationCap,
@@ -76,9 +77,9 @@ function DashboardAdmin() {
         reponseClasses,
         reponsePreparations,
       ] = await Promise.all([
-        fetch('http://localhost:5000/api/admin/enseignants'),
-        fetch('http://localhost:5000/api/classes'),
-        fetch('http://localhost:5000/api/cours'),
+        fetch('${API_URL}/api/admin/enseignants'),
+        fetch('${API_URL}/api/classes'),
+        fetch('${API_URL}/api/cours'),
       ])
 
       // ===============================

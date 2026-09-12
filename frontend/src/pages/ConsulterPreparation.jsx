@@ -49,7 +49,7 @@ function ConsulterPreparation() {
       }
 
       const reponse = await fetch(
-        `http://localhost:5000/api/cours?enseignant_id=${utilisateur.id}`
+        `${API_URL}/api/cours?enseignant_id=${utilisateur.id}`
       )
 
       const donnees = await reponse.json()

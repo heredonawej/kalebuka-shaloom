@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { API_URL } from '../api'
 import {
   ArrowLeft,
   Save,
@@ -149,7 +150,7 @@ function NouvellePreparation() {
 
     try {
       const reponse = await fetch(
-        'http://localhost:5000/api/cours',
+        `${API_URL}/api/cours/${id}`,
         {
           method: 'POST',
 
@@ -249,12 +250,12 @@ function NouvellePreparation() {
 
       if (statut === 'soumis') {
         const reponseSoumission =
-          await fetch(
-            `http://localhost:5000/api/cours/${donnees.id}/soumettre`,
-            {
-              method: 'POST',
-            }
-          )
+  await fetch(
+    `${API_URL}/api/cours/${donnees.id}/soumettre`,
+    {
+      method: 'POST',
+    }
+  )
 
         const resultatSoumission =
           await reponseSoumission.json()
