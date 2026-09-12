@@ -28,6 +28,6 @@ app.get('/', (req, res) => {
   res.send('<h1>Serveur Kalebuka Shaloom Actif 🚀</h1><p>API prête et connectée à PostgreSQL.</p>');
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Serveur actif sur : http://localhost:${PORT}`);
 });
