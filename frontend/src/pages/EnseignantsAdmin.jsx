@@ -43,7 +43,7 @@ function EnseignantsAdmin() {
       const [enseignantsResponse, classesResponse] =
         await Promise.all([
           fetch(
-            '${API_URL}/api/admin/enseignants'
+            `${API_URL}/api/admin/enseignants`
           ),
           fetch(`${API_URL}/api/classes`),
         ])

@@ -77,9 +77,9 @@ function DashboardAdmin() {
         reponseClasses,
         reponsePreparations,
       ] = await Promise.all([
-        fetch('${API_URL}/api/admin/enseignants'),
-        fetch('${API_URL}/api/classes'),
-        fetch('${API_URL}/api/cours'),
+        fetch(`${API_URL}/api/admin/enseignants`),
+        fetch(`${API_URL}/api/classes`),
+        fetch(`${API_URL}/api/cours`),
       ])
 
       // ===============================

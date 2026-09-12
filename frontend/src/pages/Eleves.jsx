@@ -139,7 +139,7 @@ function Eleves() {
   try {
 
     const reponse = await fetch(
-      '${API_URL}/api/presences',
+      `${API_URL}/api/presences`,
       {
         method: 'POST',
 
