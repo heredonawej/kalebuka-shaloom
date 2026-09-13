@@ -150,8 +150,8 @@ function NouvellePreparation() {
 
     try {
       const reponse = await fetch(
-        `${API_URL}/api/cours/${id}`,
-        {
+  `${API_URL}/api/cours`,
+  {
           method: 'POST',
 
           headers: {
