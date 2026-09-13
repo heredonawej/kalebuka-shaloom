@@ -14,6 +14,7 @@ import {
   Link,
   useParams,
 } from 'react-router-dom'
+import { API_URL } from '../api'
 
 function ConsulterPreparation() {
   const { id } = useParams()
