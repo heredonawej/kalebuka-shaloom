@@ -657,13 +657,25 @@ function NouvellePreparation() {
             Indiquez ce que l'élève sera capable de faire à l'issue de la leçon.
           </p>
 
-          <ChampTexte
-            label="Objectif opérationnel"
-            name="objectif_operationnel"
-            placeholder="Ex. À l'issue de la leçon, l'élève sera capable de compter et d'écrire correctement les nombres entiers de 0 à 250."
-            rows={4}
-            obligatoire
-          />
+          <div>
+  <label className="block text-sm font-semibold text-slate-700 mb-2">
+    Objectif opérationnel
+    <span className="text-red-500 ml-1">*</span>
+  </label>
+
+  <textarea
+    name="objectif_operationnel"
+    value={formulaire.objectif_operationnel}
+    onChange={changerChamp}
+    placeholder="Ex. À l’issue de la leçon, l’élève sera capable de..."
+    rows={5}
+    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none resize-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition leading-6"
+  />
+
+  <p className="mt-2 text-xs text-slate-400">
+    Décrivez clairement ce que l’élève sera capable de faire à la fin de la leçon.
+  </p>
+</div>
 
         </section>
 

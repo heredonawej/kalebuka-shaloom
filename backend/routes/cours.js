@@ -64,6 +64,51 @@ router.get('/', async (req, res) => {
 // =====================================================
 // CRÉER UNE NOUVELLE PRÉPARATION
 // =====================================================
+// =====================================================
+// RÉCUPÉRER UNE PRÉPARATION PAR SON ID
+// =====================================================
+
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const resultat = await pool.query(
+      `
+      SELECT
+        c.*,
+        cl.nom AS classe_nom,
+        cl.section,
+        u.nom AS enseignant_nom
+      FROM cours c
+      LEFT JOIN classes cl
+        ON c.classe_id = cl.id
+      LEFT JOIN utilisateurs u
+        ON c.enseignant_id = u.id
+      WHERE c.id = $1
+      `,
+      [id]
+    )
+
+    if (resultat.rows.length === 0) {
+      return res.status(404).json({
+        erreur: 'Préparation introuvable.'
+      })
+    }
+
+    res.json(resultat.rows[0])
+
+  } catch (err) {
+    console.error(
+      'Erreur récupération préparation :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de récupérer la préparation.'
+    })
+  }
+})
 
 router.post('/', async (req, res) => {
   try {
