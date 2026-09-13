@@ -353,7 +353,7 @@ function EnseignantsAdmin() {
               onChange={(e) =>
                 setMatricule(e.target.value)
               }
-              placeholder="Ex : ENS-0002"
+              placeholder="Ex : ENS-****-0002"
               className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase"
             />
 

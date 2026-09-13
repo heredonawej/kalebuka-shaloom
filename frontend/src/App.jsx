@@ -27,6 +27,7 @@ import ConsulterPreparation from './pages/ConsulterPreparation'
 import LayoutAdmin from './pages/LayoutAdmin'
 import DashboardAdmin from './pages/DashboardAdmin'
 import EnseignantsAdmin from './pages/EnseignantsAdmin'
+import ClassesAdmin from './pages/ClassesAdmin'
 
 function App() {
 
@@ -180,6 +181,10 @@ function App() {
             <Route
   path="enseignants"
   element={<EnseignantsAdmin />}
+/>
+<Route
+  path="/admin/classes"
+  element={<ClassesAdmin />}
 />
 
           </Route>
