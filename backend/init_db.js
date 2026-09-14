@@ -20,11 +20,12 @@ CREATE TABLE IF NOT EXISTS classes (
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(100) NOT NULL,
-    email VARCHAR(150) UNIQUE NOT NULL,
+    email VARCHAR(150) UNIQUE,
     mot_de_passe VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'enseignant',
     classe_id INT REFERENCES classes(id) ON DELETE SET NULL,
-    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    matricule VARCHAR(50) UNIQUE
 );
 
 
@@ -54,30 +55,82 @@ CREATE TABLE IF NOT EXISTS cours (
 
 CREATE TABLE IF NOT EXISTS eleves (
     id SERIAL PRIMARY KEY,
+
     nom VARCHAR(100) NOT NULL,
+
     prenom VARCHAR(100) NOT NULL,
-    classe_id INT REFERENCES classes(id) ON DELETE SET NULL,
-    date_inscription TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    sexe VARCHAR(20),
+
+    date_naissance DATE,
+
+    lieu_naissance VARCHAR(150),
+
+    adresse VARCHAR(255),
+
+    nom_tuteur VARCHAR(150),
+
+    telephone_tuteur VARCHAR(30),
+
+    classe_id INT
+        REFERENCES classes(id)
+        ON DELETE SET NULL,
+
+    date_inscription TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
 );
 
 
 -- ============================================
--- 5. TABLE DES NOTES
+-- 5. MISE À JOUR DE LA TABLE DES ÉLÈVES
+-- ============================================
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS sexe VARCHAR(20);
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS date_naissance DATE;
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS lieu_naissance VARCHAR(150);
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS adresse VARCHAR(255);
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS nom_tuteur VARCHAR(150);
+
+ALTER TABLE eleves
+ADD COLUMN IF NOT EXISTS telephone_tuteur VARCHAR(30);
+
+
+-- ============================================
+-- 6. TABLE DES NOTES
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS notes (
     id SERIAL PRIMARY KEY,
-    eleve_id INT REFERENCES eleves(id) ON DELETE CASCADE,
+
+    eleve_id INT
+        REFERENCES eleves(id)
+        ON DELETE CASCADE,
+
     matiere VARCHAR(100) NOT NULL,
-    type_eval VARCHAR(50) DEFAULT 'Interrogation',
+
+    type_eval VARCHAR(50)
+        DEFAULT 'Interrogation',
+
     valeur NUMERIC(5, 2) NOT NULL,
+
     commentaire VARCHAR(255),
-    date_evaluation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    date_evaluation TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
 );
 
 
 -- ============================================
--- 6. TABLE DES PRÉSENCES
+-- 7. TABLE DES PRÉSENCES
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS presences (
@@ -95,19 +148,29 @@ CREATE TABLE IF NOT EXISTS presences (
         REFERENCES classes(id)
         ON DELETE SET NULL,
 
-    date_presence DATE NOT NULL DEFAULT CURRENT_DATE,
+    date_presence DATE
+        NOT NULL DEFAULT CURRENT_DATE,
 
-    statut VARCHAR(20) NOT NULL DEFAULT 'present',
+    statut VARCHAR(20)
+        NOT NULL DEFAULT 'present',
 
-    heure_enregistrement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    heure_enregistrement TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT statut_presence_valide
-        CHECK (statut IN ('present', 'absent', 'retard', 'justifie'))
+        CHECK (
+            statut IN (
+                'present',
+                'absent',
+                'retard',
+                'justifie'
+            )
+        )
 );
 
 
 -- ============================================
--- 7. TABLE DES APPRÉCIATIONS
+-- 8. TABLE DES APPRÉCIATIONS
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS appreciations (
@@ -127,52 +190,11 @@ CREATE TABLE IF NOT EXISTS appreciations (
 
     appreciation TEXT NOT NULL,
 
-    date_appreciation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    date_appreciation TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
 );
 
-
--- ============================================
--- 8. DONNÉES INITIALES
--- ============================================
-
-INSERT INTO classes (nom, section)
-VALUES
-    ('1ère Maternelle', 'Maternelle'),
-    ('6ème Primaire', 'Primaire'),
-    ('3ème Secondaire', 'Secondaire'),
-    ('4ème Scientifique', 'Secondaire')
-ON CONFLICT DO NOTHING;
-
-
-INSERT INTO utilisateurs (
-    nom,
-    email,
-    mot_de_passe,
-    role
-)
-VALUES
-    (
-        'Professeur Martin',
-        'martin@ecole.fr',
-        'secret123',
-        'enseignant'
-    ),
-    (
-        'Préfet des Études',
-        'prefet@ecole.fr',
-        'prefet123',
-        'prefet'
-    ),
-    (
-        'Direction Kalebuka',
-        'direction@ecole.fr',
-        'admin123',
-        'admin'
-    )
-ON CONFLICT (email) DO NOTHING;
-
 `
-
 
 async function creerLesTables() {
 
@@ -200,6 +222,5 @@ async function creerLesTables() {
     process.exit(1)
   }
 }
-
 
 creerLesTables()
