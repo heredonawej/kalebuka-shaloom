@@ -94,6 +94,100 @@ router.post('/', async (req, res) => {
     })
   }
 })
+// =====================================
+// SUPPRIMER UNE CLASSE
+// =====================================
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Vérifier que la classe existe
+    const classe = await pool.query(
+      `
+      SELECT id, nom, section
+      FROM classes
+      WHERE id = $1
+      `,
+      [id]
+    )
+
+    if (classe.rows.length === 0) {
+      return res.status(404).json({
+        erreur: 'Classe introuvable.'
+      })
+    }
+
+    // Vérifier les élèves
+    const eleves = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM eleves
+      WHERE classe_id = $1
+      `,
+      [id]
+    )
+
+    const totalEleves = Number(eleves.rows[0].total)
+
+    if (totalEleves > 0) {
+      return res.status(409).json({
+        erreur:
+          `Impossible de supprimer cette classe car elle contient ${totalEleves} élève(s).`
+      })
+    }
+
+    // Vérifier les enseignants affectés
+    const enseignants = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM utilisateurs
+      WHERE classe_id = $1
+      AND role = 'enseignant'
+      `,
+      [id]
+    )
+
+    const totalEnseignants =
+      Number(enseignants.rows[0].total)
+
+    if (totalEnseignants > 0) {
+      return res.status(409).json({
+        erreur:
+          `Impossible de supprimer cette classe car ${totalEnseignants} enseignant(s) y sont affecté(s).`
+      })
+    }
+
+    // Supprimer la classe
+    const resultat = await pool.query(
+      `
+      DELETE FROM classes
+      WHERE id = $1
+      RETURNING id, nom, section
+      `,
+      [id]
+    )
+
+    res.json({
+      message:
+        `La classe « ${resultat.rows[0].nom} » a été supprimée avec succès.`,
+
+      classe: resultat.rows[0]
+    })
+
+  } catch (err) {
+
+    console.error(
+      'Erreur suppression classe :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de supprimer la classe.'
+    })
+  }
+})
 
 
 // =====================================================
@@ -264,7 +358,71 @@ router.post('/:id/eleves', async (req, res) => {
     })
   }
 })
+// =====================================================
+// LISTE DE TOUS LES ÉLÈVES
+// =====================================================
 
+router.get('/eleves', async (req, res) => {
+  try {
+    const resultat = await pool.query(`
+      SELECT
+        e.id,
+        e.nom,
+        e.prenom,
+        e.sexe,
+        e.date_naissance,
+        e.lieu_naissance,
+        e.adresse,
+        e.nom_tuteur,
+        e.telephone_tuteur,
+        e.classe_id,
+        e.date_inscription,
+
+        c.nom AS classe_nom,
+        c.section AS classe_section,
+
+        ROUND(AVG(n.valeur), 2) AS moyenne,
+        COUNT(n.id) AS nombre_notes
+
+      FROM eleves e
+
+      LEFT JOIN classes c
+        ON e.classe_id = c.id
+
+      LEFT JOIN notes n
+        ON e.id = n.eleve_id
+
+      GROUP BY
+        e.id,
+        e.nom,
+        e.prenom,
+        e.sexe,
+        e.date_naissance,
+        e.lieu_naissance,
+        e.adresse,
+        e.nom_tuteur,
+        e.telephone_tuteur,
+        e.classe_id,
+        e.date_inscription,
+        c.nom,
+        c.section
+
+      ORDER BY e.date_inscription DESC, e.nom ASC;
+    `)
+
+    res.json(resultat.rows)
+
+  } catch (err) {
+    console.error(
+      'Erreur chargement de tous les élèves :',
+      err
+    )
+
+    res.status(500).json({
+      erreur: 'Impossible de charger les élèves.'
+    })
+  }
+})
 
 // =====================================================
 // 4. MODIFIER UN ÉLÈVE

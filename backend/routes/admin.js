@@ -3,6 +3,10 @@ import pool from '../db.js'
 
 const router = express.Router()
 
+// =====================================
+// GÉNÉRER UN MOT DE PASSE TEMPORAIRE
+// =====================================
+
 function genererMotDePasse() {
   const caracteres =
     'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
@@ -40,7 +44,7 @@ router.post('/enseignants', async (req, res) => {
       })
     }
 
-    // Vérifier si le matricule existe déjà
+    // Vérifier le matricule
     const verification = await pool.query(
       `
       SELECT id
@@ -57,11 +61,29 @@ router.post('/enseignants', async (req, res) => {
       })
     }
 
-    // Génération du mot de passe
-    const motDePasse =
-      genererMotDePasse()
+    // Vérifier que la classe existe si elle est renseignée
+    if (classe_id) {
+      const classe = await pool.query(
+        `
+        SELECT id
+        FROM classes
+        WHERE id = $1
+        `,
+        [classe_id]
+      )
 
-    // Création du compte
+      if (classe.rows.length === 0) {
+        return res.status(404).json({
+          erreur:
+            'La classe sélectionnée n’existe pas.'
+        })
+      }
+    }
+
+    // Générer le mot de passe
+    const motDePasse = genererMotDePasse()
+
+    // Créer le compte
     const resultat = await pool.query(
       `
       INSERT INTO utilisateurs (
@@ -125,7 +147,6 @@ router.post('/enseignants', async (req, res) => {
 // =====================================
 
 router.get('/enseignants', async (req, res) => {
-
   try {
 
     const resultat = await pool.query(
@@ -136,6 +157,7 @@ router.get('/enseignants', async (req, res) => {
         u.matricule,
         u.role,
         u.classe_id,
+        u.actif,
         c.nom AS classe_nom,
         c.section,
         u.date_creation
@@ -163,6 +185,220 @@ router.get('/enseignants', async (req, res) => {
     res.status(500).json({
       erreur:
         'Impossible de récupérer les enseignants.'
+    })
+  }
+})
+
+
+// =====================================
+// MODIFIER L'AFFECTATION D'UN ENSEIGNANT
+// =====================================
+
+router.put('/enseignants/:id/classe', async (req, res) => {
+  try {
+
+    const { id } = req.params
+    const { classe_id } = req.body
+
+    // Vérifier que l'enseignant existe
+    const enseignant = await pool.query(
+      `
+      SELECT id
+      FROM utilisateurs
+      WHERE id = $1
+      AND role = 'enseignant'
+      `,
+      [id]
+    )
+
+    if (enseignant.rows.length === 0) {
+      return res.status(404).json({
+        erreur:
+          'Enseignant introuvable.'
+      })
+    }
+
+    // Vérifier la classe
+    if (classe_id) {
+
+      const classe = await pool.query(
+        `
+        SELECT
+          id,
+          nom,
+          section
+        FROM classes
+        WHERE id = $1
+        `,
+        [classe_id]
+      )
+
+      if (classe.rows.length === 0) {
+        return res.status(404).json({
+          erreur:
+            'La classe sélectionnée n’existe pas.'
+        })
+      }
+    }
+
+    // Modifier l'affectation
+    const resultat = await pool.query(
+      `
+      UPDATE utilisateurs
+      SET classe_id = $1
+      WHERE id = $2
+      AND role = 'enseignant'
+
+      RETURNING
+        id,
+        nom,
+        matricule,
+        classe_id
+      `,
+      [
+        classe_id || null,
+        id
+      ]
+    )
+
+    res.json({
+      message:
+        'Affectation modifiée avec succès.',
+
+      enseignant:
+        resultat.rows[0]
+    })
+
+  } catch (err) {
+
+    console.error(
+      'Erreur modification affectation :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de modifier l’affectation.'
+    })
+  }
+})
+
+
+// =====================================
+// ACTIVER / DÉSACTIVER UN ENSEIGNANT
+// =====================================
+
+router.put('/enseignants/:id/statut', async (req, res) => {
+  try {
+
+    const { id } = req.params
+    const { actif } = req.body
+
+    if (typeof actif !== 'boolean') {
+      return res.status(400).json({
+        erreur:
+          'Le statut doit être true ou false.'
+      })
+    }
+
+    const resultat = await pool.query(
+      `
+      UPDATE utilisateurs
+      SET actif = $1
+      WHERE id = $2
+      AND role = 'enseignant'
+
+      RETURNING
+        id,
+        nom,
+        matricule,
+        actif
+      `,
+      [
+        actif,
+        id
+      ]
+    )
+
+    if (resultat.rows.length === 0) {
+      return res.status(404).json({
+        erreur:
+          'Enseignant introuvable.'
+      })
+    }
+
+    res.json({
+      message: actif
+        ? 'Enseignant activé avec succès.'
+        : 'Enseignant désactivé avec succès.',
+
+      enseignant:
+        resultat.rows[0]
+    })
+
+  } catch (err) {
+
+    console.error(
+      'Erreur modification statut :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de modifier le statut.'
+    })
+  }
+})
+
+
+// =====================================
+// SUPPRIMER UN ENSEIGNANT
+// =====================================
+
+router.delete('/enseignants/:id', async (req, res) => {
+  try {
+
+    const { id } = req.params
+
+    const resultat = await pool.query(
+      `
+      DELETE FROM utilisateurs
+      WHERE id = $1
+      AND role = 'enseignant'
+
+      RETURNING
+        id,
+        nom,
+        matricule
+      `,
+      [id]
+    )
+
+    if (resultat.rows.length === 0) {
+      return res.status(404).json({
+        erreur:
+          'Enseignant introuvable.'
+      })
+    }
+
+    res.json({
+      message:
+        'Enseignant supprimé avec succès.',
+
+      enseignant:
+        resultat.rows[0]
+    })
+
+  } catch (err) {
+
+    console.error(
+      'Erreur suppression enseignant :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de supprimer l’enseignant.'
     })
   }
 })
