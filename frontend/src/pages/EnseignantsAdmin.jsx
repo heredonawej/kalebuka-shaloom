@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
   Save,
+  KeyRound,
 } from 'lucide-react'
 
 function EnseignantsAdmin() {
@@ -43,6 +44,7 @@ function EnseignantsAdmin() {
 
   // Action statut
   const [actionId, setActionId] = useState(null)
+  const [resetId, setResetId] = useState(null)
 
 
   // =====================================
@@ -408,7 +410,65 @@ function EnseignantsAdmin() {
       setActionId(null)
     }
   }
+// =====================================
+// RÉINITIALISER LE MOT DE PASSE
+// =====================================
 
+const reinitialiserMotDePasse = async (enseignant) => {
+  const confirmation = window.confirm(
+    `Réinitialiser le mot de passe de ${enseignant.nom} ?\n\nL'ancien mot de passe ne fonctionnera plus.`
+  )
+
+  if (!confirmation) {
+    return
+  }
+
+  try {
+    setResetId(enseignant.id)
+    setErreur('')
+    setSucces('')
+    setMotDePasse('')
+    setCopie(false)
+
+    const response = await fetch(
+      `${API_URL}/api/admin/enseignants/${enseignant.id}/reset-password`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.erreur ||
+        'Impossible de réinitialiser le mot de passe.'
+      )
+    }
+
+    setMotDePasse(
+      data.mot_de_passe_temporaire
+    )
+
+    setSucces(
+      `Nouveau mot de passe généré pour ${enseignant.nom}.`
+    )
+
+  } catch (err) {
+    console.error(err)
+
+    setErreur(
+      err.message ||
+      'Impossible de réinitialiser le mot de passe.'
+    )
+
+  } finally {
+    setResetId(null)
+  }
+}
 
   return (
     <div className="space-y-6">
@@ -581,7 +641,7 @@ function EnseignantsAdmin() {
                   onChange={(e) =>
                     setNom(e.target.value)
                   }
-                  placeholder="Ex : Jean Kabeya"
+                  placeholder="Ex : Heredo nawej"
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
 
@@ -872,7 +932,28 @@ function EnseignantsAdmin() {
                                 <Pencil size={14} />
                                 Modifier
                               </button>
+<button
+  type="button"
+  disabled={
+    actionId === enseignant.id ||
+    resetId === enseignant.id
+  }
+  onClick={() =>
+    reinitialiserMotDePasse(enseignant)
+  }
+  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold transition"
+>
+  {resetId === enseignant.id ? (
+    <Loader2
+      size={14}
+      className="animate-spin"
+    />
+  ) : (
+    <KeyRound size={14} />
+  )}
 
+  Réinitialiser
+</button>
 
                               <button
                                 type="button"
@@ -990,7 +1071,30 @@ function EnseignantsAdmin() {
                       </div>
 
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
+
+                        <button
+  type="button"
+  disabled={
+    actionId === enseignant.id ||
+    resetId === enseignant.id
+  }
+  onClick={() =>
+    reinitialiserMotDePasse(enseignant)
+  }
+  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold transition"
+>
+  {resetId === enseignant.id ? (
+    <Loader2
+      size={15}
+      className="animate-spin"
+    />
+  ) : (
+    <KeyRound size={15} />
+  )}
+
+  Réinitialiser
+</button>
 
                         <button
                           type="button"

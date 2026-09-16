@@ -402,6 +402,63 @@ router.delete('/enseignants/:id', async (req, res) => {
     })
   }
 })
+// =====================================
+// RÉINITIALISER LE MOT DE PASSE
+// =====================================
+
+router.post('/enseignants/:id/reset-password', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Vérifier que l'enseignant existe
+    const verification = await pool.query(
+      `
+      SELECT id, nom, matricule
+      FROM utilisateurs
+      WHERE id = $1
+        AND role = 'enseignant'
+      `,
+      [id]
+    )
+
+    if (verification.rows.length === 0) {
+      return res.status(404).json({
+        erreur: 'Enseignant introuvable.'
+      })
+    }
+
+    // Générer un nouveau mot de passe
+    const nouveauMotDePasse = genererMotDePasse()
+
+    // Remplacer l'ancien mot de passe
+    await pool.query(
+      `
+      UPDATE utilisateurs
+      SET mot_de_passe = $1
+      WHERE id = $2
+        AND role = 'enseignant'
+      `,
+      [nouveauMotDePasse, id]
+    )
+
+    res.json({
+      message: 'Mot de passe réinitialisé avec succès.',
+      mot_de_passe_temporaire: nouveauMotDePasse,
+      enseignant: verification.rows[0]
+    })
+
+  } catch (err) {
+    console.error(
+      'Erreur réinitialisation mot de passe :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de réinitialiser le mot de passe.'
+    })
+  }
+})
 
 
 export default router

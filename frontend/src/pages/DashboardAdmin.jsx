@@ -242,15 +242,31 @@ function DashboardAdmin() {
           const Icone = statistique.icone
 
           return (
-            <div
-              key={statistique.titre}
-              className="bg-white
-                         border
-                         border-slate-200
-                         rounded-2xl
-                         p-5
-                         shadow-sm"
-            >
+            <Link
+  key={statistique.titre}
+  to={
+    statistique.titre === 'Préparations'
+      ? '/admin/preparations'
+      : '#'
+  }
+  onClick={(e) => {
+    if (statistique.titre !== 'Préparations') {
+      e.preventDefault()
+    }
+  }}
+  className={`bg-white
+             border
+             border-slate-200
+             rounded-2xl
+             p-5
+             shadow-sm
+             ${
+               statistique.titre === 'Préparations'
+                 ? 'hover:border-amber-300 hover:shadow-md cursor-pointer'
+                 : ''
+             }
+             transition`}
+>
 
               <div
                 className="flex
@@ -302,7 +318,7 @@ function DashboardAdmin() {
                 {statistique.description}
               </p>
 
-            </div>
+            </Link>
           )
         })}
 

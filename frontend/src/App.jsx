@@ -29,6 +29,9 @@ import DashboardAdmin from './pages/DashboardAdmin'
 import EnseignantsAdmin from './pages/EnseignantsAdmin'
 import ClassesAdmin from './pages/ClassesAdmin'
 import ElevesAdmin from './pages/ElevesAdmin'
+import PreparationsAdmin from './pages/PreparationsAdmin'
+import PreparationsAdminDetail from './pages/PreparationsAdminDetail'
+import RapportsAdmin from './pages/RapportsAdmin'
 
 function App() {
 
@@ -190,6 +193,18 @@ function App() {
 <Route
   path="eleves"
   element={<ElevesAdmin />}
+/>
+<Route
+  path="/admin/preparations"
+  element={<PreparationsAdmin />}
+/>
+<Route
+  path="/admin/preparations/:id"
+  element={<PreparationsAdminDetail />}
+/>
+<Route
+  path="/admin/rapports"
+  element={<RapportsAdmin />}
 />
 
           </Route>
