@@ -27,13 +27,13 @@ router.get('/', async (req, res) => {
 
   COALESCE(
     NULLIF(
-      regexp_replace(nom, '[^0-9]', '', 'g'),
+      regexp_replace(c.nom, '[^0-9]', '', 'g'),
       ''
     )::INTEGER,
     999
   ),
 
-  LOWER(nom)
+  LOWER(c.nom)
     `)
 
     res.json(resultat.rows)
