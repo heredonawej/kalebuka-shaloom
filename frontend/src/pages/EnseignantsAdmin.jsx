@@ -46,6 +46,33 @@ function EnseignantsAdmin() {
   const [actionId, setActionId] = useState(null)
   const [resetId, setResetId] = useState(null)
 
+  // Section active pour filtrer les enseignants
+  const [sectionActive, setSectionActive] = useState('Maternelle')
+
+  const getSectionEnseignant = (enseignant) => {
+    if (enseignant.section) {
+      return enseignant.section
+    }
+
+    const classe = classes.find(
+      (item) => item.id === enseignant.classe_id
+    )
+
+    return classe?.section || null
+  }
+
+  const enseignantsFiltres = enseignants.filter(
+    (enseignant) =>
+      getSectionEnseignant(enseignant) === sectionActive
+  )
+
+  const nombreEnseignantsSection = (sectionNom) => {
+    return enseignants.filter(
+      (enseignant) =>
+        getSectionEnseignant(enseignant) === sectionNom
+    ).length
+  }
+
 
   // =====================================
   // CHARGER LES DONNÉES
@@ -790,7 +817,108 @@ const reinitialiserMotDePasse = async (enseignant) => {
 
 
         {listeOuverte && (
-          <div className="border-t border-slate-200">
+          <div className="border-t border-slate-200 p-4 sm:p-5">
+
+            {/* =================================
+                LES 3 SECTIONS
+            ================================= */}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+
+              {[
+                'Maternelle',
+                'Primaire',
+                'Secondaire'
+              ].map((sectionNom) => {
+
+                const nombre =
+                  nombreEnseignantsSection(sectionNom)
+
+                const active =
+                  sectionActive === sectionNom
+
+                return (
+                  <button
+                    key={sectionNom}
+                    type="button"
+                    onClick={() =>
+                      setSectionActive(sectionNom)
+                    }
+                    className={`
+                      rounded-2xl
+                      border
+                      p-4
+                      text-left
+                      transition
+                      ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200'
+                      }
+                    `}
+                  >
+
+                    <div className="flex items-center justify-between gap-3">
+
+                      <div>
+                        <p className="font-bold text-sm sm:text-base">
+                          {sectionNom}
+                        </p>
+
+                        <p
+                          className={
+                            active
+                              ? 'text-indigo-100 text-xs mt-1'
+                              : 'text-slate-500 text-xs mt-1'
+                          }
+                        >
+                          {nombre}{' '}
+                          {nombre > 1
+                            ? 'enseignants'
+                            : 'enseignant'}
+                        </p>
+                      </div>
+
+                      <Users
+                        size={20}
+                        className={
+                          active
+                            ? 'text-white'
+                            : 'text-indigo-500'
+                        }
+                      />
+
+                    </div>
+
+                  </button>
+                )
+              })}
+
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+
+              <div>
+                <p className="text-xs text-slate-400">
+                  Section sélectionnée
+                </p>
+
+                <h3 className="text-lg font-bold text-slate-900">
+                  {sectionActive}
+                </h3>
+              </div>
+
+              <div className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold">
+                <Users size={14} />
+                {enseignantsFiltres.length}{' '}
+                {enseignantsFiltres.length > 1
+                  ? 'enseignants'
+                  : 'enseignant'}
+              </div>
+
+            </div>
+
+            <div className="overflow-hidden">
 
             {chargement ? (
 
@@ -805,10 +933,18 @@ const reinitialiserMotDePasse = async (enseignant) => {
 
               </div>
 
-            ) : enseignants.length === 0 ? (
+            ) : enseignantsFiltres.length === 0 ? (
 
               <div className="py-12 text-center text-slate-500">
-                Aucun enseignant enregistré.
+
+                <Users
+                  size={30}
+                  className="mx-auto mb-3 text-slate-300"
+                />
+
+                Aucun enseignant affecté à la section{' '}
+                <strong>{sectionActive}</strong>.
+
               </div>
 
             ) : (
@@ -853,7 +989,7 @@ const reinitialiserMotDePasse = async (enseignant) => {
 
                     <tbody className="divide-y divide-slate-100">
 
-                      {enseignants.map((enseignant) => (
+                      {enseignantsFiltres.map((enseignant) => (
 
                         <tr
                           key={enseignant.id}
@@ -1019,7 +1155,7 @@ const reinitialiserMotDePasse = async (enseignant) => {
 
                 <div className="md:hidden divide-y divide-slate-100">
 
-                  {enseignants.map((enseignant) => (
+                  {enseignantsFiltres.map((enseignant) => (
 
                     <div
                       key={enseignant.id}
@@ -1162,6 +1298,8 @@ const reinitialiserMotDePasse = async (enseignant) => {
               </>
 
             )}
+
+            </div>
 
           </div>
         )}
