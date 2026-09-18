@@ -10,6 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Pencil,
+  X,
+  Save,
 } from 'lucide-react'
 
 
@@ -23,6 +26,10 @@ function ClassesAdmin() {
   const [chargement, setChargement] = useState(true)
   const [creation, setCreation] = useState(false)
   const [suppression, setSuppression] = useState(null)
+  const [classeModifiee, setClasseModifiee] = useState(null)
+const [nouveauNom, setNouveauNom] = useState('')
+const [nouvelleSection, setNouvelleSection] = useState('')
+const [modification, setModification] = useState(false)
 
   const [erreur, setErreur] = useState('')
   const [succes, setSucces] = useState('')
@@ -166,7 +173,93 @@ function ClassesAdmin() {
 
     }
   }
+// =====================================================
+// OUVRIR MODIFICATION
+// =====================================================
 
+const ouvrirModification = (classe) => {
+  setErreur('')
+  setSucces('')
+
+  setClasseModifiee(classe)
+  setNouveauNom(classe.nom || '')
+  setNouvelleSection(classe.section || '')
+}
+// =====================================================
+// FERMER MODIFICATION
+// =====================================================
+
+const fermerModification = () => {
+  setClasseModifiee(null)
+  setNouveauNom('')
+  setNouvelleSection('')
+}
+// =====================================================
+// MODIFIER UNE CLASSE
+// =====================================================
+
+const modifierClasse = async () => {
+  if (!classeModifiee) return
+
+  setErreur('')
+  setSucces('')
+
+  if (!nouvelleSection) {
+    setErreur('Veuillez choisir une section.')
+    return
+  }
+
+  if (!nouveauNom.trim()) {
+    setErreur('Veuillez saisir le nom de la classe.')
+    return
+  }
+
+  try {
+    setModification(true)
+
+    const response = await fetch(
+      `${API_URL}/api/classes/${classeModifiee.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nom: nouveauNom.trim(),
+          section: nouvelleSection,
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.erreur ||
+        'Impossible de modifier la classe.'
+      )
+    }
+
+    setSucces(
+      `La classe « ${data.nom || nouveauNom} » a été modifiée avec succès.`
+    )
+
+    fermerModification()
+
+    await chargerClasses()
+
+  } catch (err) {
+    console.error(err)
+
+    setErreur(
+      err.message ||
+      'Impossible de modifier la classe.'
+    )
+
+  } finally {
+    setModification(false)
+  }
+}
 
   // =====================================================
   // SUPPRIMER UNE CLASSE
@@ -863,6 +956,28 @@ function ClassesAdmin() {
                               flex
                               justify-end
                             ">
+                              <button
+  type="button"
+  onClick={() => ouvrirModification(classe)}
+  className="
+    inline-flex
+    items-center
+    gap-2
+    px-3
+    py-2
+    rounded-lg
+    bg-indigo-50
+    text-indigo-600
+    hover:bg-indigo-100
+    text-xs
+    font-semibold
+    transition
+    mr-2
+  "
+>
+  <Pencil size={15} />
+  Modifier
+</button>
 
                               <button
                                 type="button"
@@ -1012,7 +1127,30 @@ function ClassesAdmin() {
                         </span>
 
                       </div>
-
+<button
+  type="button"
+  onClick={() => ouvrirModification(classe)}
+  className="
+    w-full
+    mt-4
+    flex
+    items-center
+    justify-center
+    gap-2
+    px-4
+    py-2.5
+    rounded-xl
+    bg-indigo-50
+    text-indigo-600
+    hover:bg-indigo-100
+    text-xs
+    font-semibold
+    transition
+  "
+>
+  <Pencil size={15} />
+  Modifier la classe
+</button>
 
                       <button
                         type="button"
@@ -1084,6 +1222,181 @@ function ClassesAdmin() {
         )}
 
       </section>
+      {/* =================================================
+    MODALE MODIFICATION CLASSE
+================================================= */}
+
+{classeModifiee && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+
+    {/* Fond */}
+    <div
+      className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+      onClick={fermerModification}
+    />
+
+    {/* Fenêtre */}
+    <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+      {/* HEADER */}
+      <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+
+        <div>
+          <h2 className="font-bold text-slate-900">
+            Modifier la classe
+          </h2>
+
+          <p className="text-xs text-slate-500 mt-1">
+            Modifiez le nom ou la section.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={fermerModification}
+          className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500"
+        >
+          <X size={19} />
+        </button>
+
+      </div>
+
+      {/* CONTENU */}
+      <div className="p-5 space-y-4">
+
+        {/* NOM */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Nom de la classe
+          </label>
+
+          <input
+            type="text"
+            value={nouveauNom}
+            onChange={(e) => setNouveauNom(e.target.value)}
+            placeholder="Ex. 6ème Primaire"
+            className="
+              w-full
+              h-12
+              px-4
+              rounded-xl
+              border
+              border-slate-300
+              outline-none
+              focus:ring-2
+              focus:ring-indigo-500
+              focus:border-indigo-500
+            "
+          />
+        </div>
+
+        {/* SECTION */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Section
+          </label>
+
+          <select
+            value={nouvelleSection}
+            onChange={(e) => setNouvelleSection(e.target.value)}
+            className="
+              w-full
+              h-12
+              px-4
+              rounded-xl
+              border
+              border-slate-300
+              bg-white
+              outline-none
+              focus:ring-2
+              focus:ring-indigo-500
+              focus:border-indigo-500
+            "
+          >
+            <option value="">
+              Choisir une section
+            </option>
+
+            <option value="Maternelle">
+              Maternelle
+            </option>
+
+            <option value="Primaire">
+              Primaire
+            </option>
+
+            <option value="Secondaire">
+              Secondaire
+            </option>
+          </select>
+        </div>
+
+      </div>
+
+      {/* FOOTER */}
+      <div className="px-5 py-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row justify-end gap-2">
+
+        <button
+          type="button"
+          onClick={fermerModification}
+          disabled={modification}
+          className="
+            px-4
+            py-2.5
+            rounded-xl
+            border
+            border-slate-300
+            text-slate-700
+            hover:bg-slate-50
+            font-medium
+            transition
+          "
+        >
+          Annuler
+        </button>
+
+        <button
+          type="button"
+          onClick={modifierClasse}
+          disabled={modification}
+          className="
+            flex
+            items-center
+            justify-center
+            gap-2
+            px-4
+            py-2.5
+            rounded-xl
+            bg-indigo-600
+            hover:bg-indigo-700
+            disabled:bg-indigo-300
+            text-white
+            font-semibold
+            transition
+          "
+        >
+          {modification ? (
+            <>
+              <Loader2
+                size={16}
+                className="animate-spin"
+              />
+              Enregistrement...
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              Enregistrer
+            </>
+          )}
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
     </div>
   )

@@ -188,6 +188,98 @@ router.delete('/:id', async (req, res) => {
     })
   }
 })
+// =====================================
+// MODIFIER UNE CLASSE
+// =====================================
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { nom, section } = req.body
+
+    if (!nom || !section) {
+      return res.status(400).json({
+        erreur: 'Le nom et la section sont obligatoires.'
+      })
+    }
+
+    const sectionsAutorisees = [
+      'Maternelle',
+      'Primaire',
+      'Secondaire'
+    ]
+
+    if (!sectionsAutorisees.includes(section)) {
+      return res.status(400).json({
+        erreur: 'Section invalide.'
+      })
+    }
+
+    // Vérifier que la classe existe
+    const classeExistante = await pool.query(
+      `
+      SELECT id
+      FROM classes
+      WHERE id = $1
+      `,
+      [id]
+    )
+
+    if (classeExistante.rows.length === 0) {
+      return res.status(404).json({
+        erreur: 'Classe introuvable.'
+      })
+    }
+
+    // Vérifier les doublons
+    const doublon = await pool.query(
+      `
+      SELECT id
+      FROM classes
+      WHERE LOWER(TRIM(nom)) = LOWER(TRIM($1))
+        AND LOWER(section) = LOWER($2)
+        AND id <> $3
+      `,
+      [nom, section, id]
+    )
+
+    if (doublon.rows.length > 0) {
+      return res.status(409).json({
+        erreur:
+          'Une classe portant ce nom existe déjà dans cette section.'
+      })
+    }
+
+    const resultat = await pool.query(
+      `
+      UPDATE classes
+      SET
+        nom = $1,
+        section = $2
+      WHERE id = $3
+      RETURNING id, nom, section
+      `,
+      [
+        nom.trim(),
+        section,
+        id
+      ]
+    )
+
+    res.json(resultat.rows[0])
+
+  } catch (err) {
+    console.error(
+      'Erreur modification classe :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de modifier la classe.'
+    })
+  }
+})
 
 
 // =====================================================
