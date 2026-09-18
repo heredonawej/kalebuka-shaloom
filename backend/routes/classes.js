@@ -17,7 +17,23 @@ router.get('/', async (req, res) => {
       FROM classes c
       LEFT JOIN eleves e ON c.id = e.classe_id
       GROUP BY c.id
-      ORDER BY c.id ASC;
+      ORDER BY
+  CASE
+    WHEN section = 'Maternelle' THEN 1
+    WHEN section = 'Primaire' THEN 2
+    WHEN section = 'Secondaire' THEN 3
+    ELSE 4
+  END,
+
+  COALESCE(
+    NULLIF(
+      regexp_replace(nom, '[^0-9]', '', 'g'),
+      ''
+    )::INTEGER,
+    999
+  ),
+
+  LOWER(nom)
     `)
 
     res.json(resultat.rows)
