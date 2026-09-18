@@ -112,7 +112,17 @@ function AccueilEnseignant() {
   const appellation = getAppellation()
 
   return (
-    <div className="space-y-6">
+    <>
+      <style>{`
+        .enseignant-dashboard-page {
+          animation: dashboardFadeIn .4s ease-out;
+        }
+        @keyframes dashboardFadeIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    <div className="enseignant-dashboard-page space-y-7 rounded-3xl bg-slate-50/70 p-1 sm:p-2">
 
       {/* =================================================
           BLOC PRINCIPAL
@@ -120,13 +130,15 @@ function AccueilEnseignant() {
 
       <section
         className="relative overflow-hidden
-                   rounded-3xl
+                   rounded-[30px]
                    bg-gradient-to-br
                    from-blue-600
-                   via-blue-700
-                   to-indigo-800
+                   via-indigo-700
+                   to-slate-900
                    p-6 sm:p-8
-                   text-white"
+                   text-white
+                   shadow-xl shadow-blue-900/10
+                   ring-1 ring-white/10"
       >
 
         {/* Décor */}
@@ -166,10 +178,12 @@ function AccueilEnseignant() {
                          gap-2
                          px-3 py-1.5
                          rounded-full
-                         bg-white/10
+                         bg-white/15
                          text-xs
-                         font-medium
-                         mb-4"
+                         font-semibold
+                         mb-4
+                         border border-white/10
+                         backdrop-blur-sm"
             >
               <Sparkles size={14} />
 
@@ -181,7 +195,9 @@ function AccueilEnseignant() {
             <h1
               className="text-2xl
                          sm:text-3xl
-                         font-bold"
+                         lg:text-4xl
+                         font-extrabold
+                         tracking-tight"
             >
               {utilisateur?.nom
                 ? `${appellation} ${utilisateur.nom}`
@@ -331,6 +347,8 @@ function AccueilEnseignant() {
                        border border-slate-200
                        rounded-2xl
                        p-5
+                       shadow-sm
+                       hover:-translate-y-1
                        hover:border-blue-300
                        hover:shadow-lg
                        hover:shadow-blue-100/50
@@ -393,6 +411,8 @@ function AccueilEnseignant() {
                        border border-slate-200
                        rounded-2xl
                        p-5
+                       shadow-sm
+                       hover:-translate-y-1
                        hover:border-emerald-300
                        hover:shadow-lg
                        hover:shadow-emerald-100/50
@@ -455,6 +475,8 @@ function AccueilEnseignant() {
                        border border-slate-200
                        rounded-2xl
                        p-5
+                       shadow-sm
+                       hover:-translate-y-1
                        hover:border-violet-300
                        hover:shadow-lg
                        hover:shadow-violet-100/50
@@ -530,7 +552,10 @@ function AccueilEnseignant() {
                      bg-white
                      border border-slate-200
                      rounded-2xl
-                     p-6"
+                     p-6
+                     shadow-sm
+                     hover:shadow-md
+                     transition-shadow"
         >
 
           <div
@@ -705,7 +730,10 @@ function AccueilEnseignant() {
           className="bg-white
                      border border-slate-200
                      rounded-2xl
-                     p-6"
+                     p-6
+                     shadow-sm
+                     hover:shadow-md
+                     transition-shadow"
         >
 
           <div
@@ -1011,6 +1039,7 @@ function AccueilEnseignant() {
       </section>
 
     </div>
+    </>
   )
 }
 
