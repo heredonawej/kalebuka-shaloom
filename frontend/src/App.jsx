@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom'
 
 import Connexion from './pages/Connexion'
+import AccueilPublic from './pages/AccueilPublic'
 
 // ===============================
 // ESPACE ENSEIGNANT
@@ -71,24 +72,6 @@ function App() {
 
 
   // ===============================
-  // UTILISATEUR NON CONNECTÉ
-  // ===============================
-
-  if (!utilisateur) {
-
-    return (
-      <BrowserRouter>
-
-        <Connexion
-          onConnexion={handleConnexion}
-        />
-
-      </BrowserRouter>
-    )
-  }
-
-
-  // ===============================
   // APPLICATION
   // ===============================
 
@@ -99,10 +82,45 @@ function App() {
       <Routes>
 
         {/* =================================
+            SITE PUBLIC
+        ================================= */}
+
+        <Route
+          path="/"
+          element={<AccueilPublic />}
+        />
+
+
+        {/* =================================
+            CONNEXION
+        ================================= */}
+
+        <Route
+          path="/connexion"
+          element={
+            utilisateur ? (
+              <Navigate
+                to={
+                  utilisateur?.role === 'admin'
+                    ? '/admin'
+                    : '/enseignant'
+                }
+                replace
+              />
+            ) : (
+              <Connexion
+                onConnexion={handleConnexion}
+              />
+            )
+          }
+        />
+
+
+        {/* =================================
             ESPACE ENSEIGNANT
         ================================= */}
 
-        {utilisateur.role === 'enseignant' && (
+        {utilisateur?.role === 'enseignant' && (
 
           <Route
             path="/enseignant"
@@ -133,10 +151,12 @@ function App() {
               path="modifier-preparation/:id"
               element={<ModifierPreparation />}
             />
+
             <Route
-  path="consulter-preparation/:id"
-  element={<ConsulterPreparation />}
-/>
+              path="consulter-preparation/:id"
+              element={<ConsulterPreparation />}
+            />
+
             <Route
               path="eleves"
               element={<Eleves />}
@@ -166,7 +186,7 @@ function App() {
             ESPACE ADMIN
         ================================= */}
 
-        {utilisateur.role === 'admin' && (
+        {utilisateur?.role === 'admin' && (
 
           <Route
             path="/admin"
@@ -182,30 +202,36 @@ function App() {
               index
               element={<DashboardAdmin />}
             />
+
             <Route
-  path="enseignants"
-  element={<EnseignantsAdmin />}
-/>
-<Route
-  path="/admin/classes"
-  element={<ClassesAdmin />}
-/>
-<Route
-  path="eleves"
-  element={<ElevesAdmin />}
-/>
-<Route
-  path="/admin/preparations"
-  element={<PreparationsAdmin />}
-/>
-<Route
-  path="/admin/preparations/:id"
-  element={<PreparationsAdminDetail />}
-/>
-<Route
-  path="/admin/rapports"
-  element={<RapportsAdmin />}
-/>
+              path="enseignants"
+              element={<EnseignantsAdmin />}
+            />
+
+            <Route
+              path="classes"
+              element={<ClassesAdmin />}
+            />
+
+            <Route
+              path="eleves"
+              element={<ElevesAdmin />}
+            />
+
+            <Route
+              path="preparations"
+              element={<PreparationsAdmin />}
+            />
+
+            <Route
+              path="preparations/:id"
+              element={<PreparationsAdminDetail />}
+            />
+
+            <Route
+              path="rapports"
+              element={<RapportsAdmin />}
+            />
 
           </Route>
 
@@ -221,9 +247,9 @@ function App() {
           element={
             <Navigate
               to={
-                utilisateur.role === 'admin'
+                utilisateur?.role === 'admin'
                   ? '/admin'
-                  : utilisateur.role === 'enseignant'
+                  : utilisateur?.role === 'enseignant'
                     ? '/enseignant'
                     : '/'
               }
