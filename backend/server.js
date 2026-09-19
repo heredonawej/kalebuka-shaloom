@@ -7,6 +7,7 @@ import routesCours from './routes/cours.js';
 import routesClasses from './routes/classes.js';
 import routesPresences from './routes/presences.js'
 import routesAdmin from './routes/admin.js'
+import routesNotes from './routes/notes.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use('/api/cours', routesCours);
 app.use('/api/classes', routesClasses);
 app.use('/api/presences', routesPresences)
 app.use('/api/admin', routesAdmin)
+app.use('/api/notes', routesNotes);
 
 app.get('/', (req, res) => {
   res.send('<h1>Serveur Kalebuka Shaloom Actif 🚀</h1><p>API prête et connectée à PostgreSQL.</p>');
