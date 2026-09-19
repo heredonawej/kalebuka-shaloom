@@ -103,6 +103,7 @@ function ElevesAdmin() {
 
   const [rechercheDate, setRechercheDate] =
     useState('')
+  const [sectionActive, setSectionActive] = useState('Maternelle')
 
   // =====================================================
   // ÉTATS
@@ -675,6 +676,22 @@ function ElevesAdmin() {
     setRechercheDate('')
 
   }
+// =====================================================
+// FILTRAGE PAR SECTION
+// =====================================================
+
+const elevesFiltresSection = useMemo(() => {
+
+  if (!sectionActive) {
+    return elevesFiltres
+  }
+
+  return elevesFiltres.filter(
+    (eleve) =>
+      eleve.classe_section === sectionActive
+  )
+
+}, [elevesFiltres, sectionActive])
 
 
   // =====================================================
@@ -768,6 +785,136 @@ function ElevesAdmin() {
         </div>
 
       </div>
+
+      {/* =================================================
+    SECTIONS
+================================================= */}
+
+<div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+  {/* MATERNELLE */}
+  <button
+    type="button"
+    onClick={() => setSectionActive('Maternelle')}
+    className={`group rounded-2xl border p-5 text-left transition-all duration-200 ${
+      sectionActive === 'Maternelle'
+        ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-100'
+        : 'border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Section
+        </p>
+
+        <h3 className="mt-1 text-lg font-bold text-slate-900">
+          Maternelle
+        </h3>
+      </div>
+
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+          sectionActive === 'Maternelle'
+            ? 'bg-blue-600 text-white'
+            : 'bg-blue-100 text-blue-600'
+        }`}
+      >
+        <GraduationCap size={21} />
+      </div>
+
+    </div>
+
+    <p className="mt-4 text-sm text-slate-500">
+      Élèves de la maternelle
+    </p>
+
+  </button>
+
+
+  {/* PRIMAIRE */}
+  <button
+    type="button"
+    onClick={() => setSectionActive('Primaire')}
+    className={`group rounded-2xl border p-5 text-left transition-all duration-200 ${
+      sectionActive === 'Primaire'
+        ? 'border-emerald-500 bg-emerald-50 shadow-md ring-2 ring-emerald-100'
+        : 'border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Section
+        </p>
+
+        <h3 className="mt-1 text-lg font-bold text-slate-900">
+          Primaire
+        </h3>
+      </div>
+
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+          sectionActive === 'Primaire'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-emerald-100 text-emerald-600'
+        }`}
+      >
+        <School size={21} />
+      </div>
+
+    </div>
+
+    <p className="mt-4 text-sm text-slate-500">
+      Élèves du primaire
+    </p>
+
+  </button>
+
+
+  {/* SECONDAIRE */}
+  <button
+    type="button"
+    onClick={() => setSectionActive('Secondaire')}
+    className={`group rounded-2xl border p-5 text-left transition-all duration-200 ${
+      sectionActive === 'Secondaire'
+        ? 'border-violet-500 bg-violet-50 shadow-md ring-2 ring-violet-100'
+        : 'border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Section
+        </p>
+
+        <h3 className="mt-1 text-lg font-bold text-slate-900">
+          Secondaire
+        </h3>
+      </div>
+
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+          sectionActive === 'Secondaire'
+            ? 'bg-violet-600 text-white'
+            : 'bg-violet-100 text-violet-600'
+        }`}
+      >
+        <GraduationCap size={21} />
+      </div>
+
+    </div>
+
+    <p className="mt-4 text-sm text-slate-500">
+      Élèves du secondaire
+    </p>
+
+  </button>
+
+</div>
 
 
       {/* =================================================
@@ -1436,7 +1583,7 @@ function ElevesAdmin() {
             <p className="text-xs text-slate-500">
 
               <strong className="text-slate-700">
-                {elevesFiltres.length}
+                {elevesFiltresSection.length}
               </strong>{' '}
 
               résultat(s)
@@ -1497,7 +1644,7 @@ function ElevesAdmin() {
               </h2>
 
               <p className="text-xs text-slate-500">
-                {elevesFiltres.length} élève(s)
+                {elevesFiltresSection.length} élève(s)
               </p>
 
             </div>
@@ -1509,7 +1656,7 @@ function ElevesAdmin() {
 
             <span className="hidden rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 sm:block">
 
-              {elevesFiltres.length} élève(s)
+              {elevesFiltresSection.length} élève(s)
 
             </span>
 
@@ -1562,7 +1709,7 @@ function ElevesAdmin() {
 
               </div>
 
-            ) : elevesFiltres.length === 0 ? (
+            ) : elevesFiltresSection.length === 0 ? (
 
               /* =================================================
                  AUCUN ÉLÈVE
@@ -1598,7 +1745,7 @@ function ElevesAdmin() {
 
                 <div className="divide-y divide-slate-100 md:hidden">
 
-                  {elevesFiltres.map(
+                  {elevesFiltresSection.map(
                     (eleve) => (
 
                       <div
@@ -1835,7 +1982,7 @@ function ElevesAdmin() {
 
                     <tbody className="divide-y divide-slate-100">
 
-                      {elevesFiltres.map(
+                      {elevesFiltresSection.map(
                         (eleve) => (
 
                           <tr

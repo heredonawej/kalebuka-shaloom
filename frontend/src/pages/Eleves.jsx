@@ -7,189 +7,306 @@ import {
   X,
   MessageSquare,
   Save,
-  UserCheck,
-  UserX,
 } from 'lucide-react'
 
 function Eleves() {
-  const [classes, setClasses] = useState([])
-  const [classeSelectionnee, setClasseSelectionnee] = useState('')
+
+  // =====================================================
+  // UTILISATEUR CONNECTÉ
+  // =====================================================
+
+  const [utilisateur] = useState(() => {
+    const sauvegarde =
+      localStorage.getItem('utilisateur')
+
+    return sauvegarde
+      ? JSON.parse(sauvegarde)
+      : null
+  })
+
+
+  // =====================================================
+  // CLASSE DE L'ENSEIGNANT
+  // =====================================================
+
+  const classeSelectionnee =
+    utilisateur?.classe_id || ''
+
+  const nomClasse =
+    utilisateur?.classe_nom || 'Classe non définie'
+
+
+  // =====================================================
+  // DONNÉES
+  // =====================================================
+
   const [eleves, setEleves] = useState([])
-  const [recherche, setRecherche] = useState('')
-  const [chargement, setChargement] = useState(false)
 
-  const [presences, setPresences] = useState({})
-  const [appreciations, setAppreciations] = useState({})
+  const [recherche, setRecherche] =
+    useState('')
 
-  // Charger les classes
+  const [chargement, setChargement] =
+    useState(false)
+
+  const [presences, setPresences] =
+    useState({})
+
+  const [appreciations, setAppreciations] =
+    useState({})
+
+
+  // =====================================================
+  // CHARGER LES ÉLÈVES DE LA CLASSE
+  // =====================================================
+
   useEffect(() => {
-    const chargerClasses = async () => {
-      try {
-        const reponse = await fetch
-          (`${API_URL}/api/classes`)
 
-        const donnees = await reponse.json()
-
-        setClasses(donnees)
-      } catch (erreur) {
-        console.error(
-          'Erreur chargement classes :',
-          erreur
-        )
-      }
-    }
-
-    chargerClasses()
-  }, [])
-
-  // Charger les élèves de la classe
-  useEffect(() => {
     if (!classeSelectionnee) {
       setEleves([])
       return
     }
 
     const chargerEleves = async () => {
+
       setChargement(true)
 
       try {
+
         const reponse = await fetch(
           `${API_URL}/api/classes/${classeSelectionnee}/eleves`
         )
 
-        const donnees = await reponse.json()
+        if (!reponse.ok) {
+          throw new Error(
+            'Impossible de charger les élèves.'
+          )
+        }
+
+        const donnees =
+          await reponse.json()
 
         setEleves(donnees)
 
-        // Par défaut : présent
+
+        // Par défaut : présents
         const nouvellesPresences = {}
 
         donnees.forEach((eleve) => {
+
           nouvellesPresences[eleve.id] = true
+
         })
 
         setPresences(nouvellesPresences)
 
       } catch (erreur) {
+
         console.error(
           'Erreur chargement élèves :',
           erreur
         )
+
+      } finally {
+
+        setChargement(false)
+
       }
 
-      setChargement(false)
     }
 
     chargerEleves()
+
   }, [classeSelectionnee])
 
-  const changerPresence = (eleveId, present) => {
+
+  // =====================================================
+  // CHANGER PRÉSENCE
+  // =====================================================
+
+  const changerPresence = (
+    eleveId,
+    present
+  ) => {
+
     setPresences((anciennes) => ({
       ...anciennes,
       [eleveId]: present,
     }))
+
   }
 
-  const changerAppreciation = (eleveId, texte) => {
+
+  // =====================================================
+  // CHANGER APPRÉCIATION
+  // =====================================================
+
+  const changerAppreciation = (
+    eleveId,
+    texte
+  ) => {
+
     setAppreciations((anciennes) => ({
       ...anciennes,
       [eleveId]: texte,
     }))
+
   }
 
-  const elevesFiltres = eleves.filter((eleve) => {
 
-    const nomComplet =
-      `${eleve.prenom} ${eleve.nom}`.toLowerCase()
+  // =====================================================
+  // RECHERCHE
+  // =====================================================
 
-    return nomComplet.includes(
-      recherche.toLowerCase()
-    )
-  })
+  const elevesFiltres = eleves.filter(
+    (eleve) => {
 
-  const totalPresents = eleves.filter(
-    (eleve) => presences[eleve.id]
-  ).length
+      const nomComplet =
+        `${eleve.prenom} ${eleve.nom}`
+          .toLowerCase()
 
-  const totalAbsents = eleves.length - totalPresents
+      return nomComplet.includes(
+        recherche.toLowerCase()
+      )
+
+    }
+  )
+
+
+  // =====================================================
+  // STATISTIQUES
+  // =====================================================
+
+  const totalPresents =
+    eleves.filter(
+      (eleve) =>
+        presences[eleve.id]
+    ).length
+
+  const totalAbsents =
+    eleves.length - totalPresents
+
+
+  // =====================================================
+  // ENREGISTRER L'APPEL
+  // =====================================================
 
   const enregistrerAppel = async () => {
 
-  const utilisateur = JSON.parse(
-    localStorage.getItem('utilisateur')
-  )
+    if (!utilisateur) {
 
-  if (!utilisateur) {
-    alert('Utilisateur non connecté.')
-    return
-  }
-
-  if (!classeSelectionnee) {
-    alert('Veuillez sélectionner une classe.')
-    return
-  }
-
-  const donneesPresences = eleves.map((eleve) => ({
-    eleve_id: eleve.id,
-    statut: presences[eleve.id]
-      ? 'present'
-      : 'absent',
-  }))
-
-  try {
-
-    const reponse = await fetch(
-      `${API_URL}/api/presences`,
-      {
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-
-        body: JSON.stringify({
-          enseignant_id: utilisateur.id,
-          classe_id: Number(classeSelectionnee),
-          presences: donneesPresences,
-        }),
-      }
-    )
-
-    const donnees = await reponse.json()
-
-    if (!reponse.ok) {
       alert(
-        donnees.erreur ||
-        'Erreur lors de l’enregistrement.'
+        'Utilisateur non connecté.'
       )
+
       return
+
     }
 
-    alert(
-      '✅ Présences enregistrées avec succès !'
-    )
 
-  } catch (erreur) {
+    if (!classeSelectionnee) {
 
-    console.error(erreur)
+      alert(
+        'Aucune classe n’est associée à votre compte.'
+      )
 
-    alert(
-      'Impossible de contacter le serveur.'
-    )
+      return
+
+    }
+
+
+    const donneesPresences =
+      eleves.map((eleve) => ({
+
+        eleve_id: eleve.id,
+
+        statut:
+          presences[eleve.id]
+            ? 'present'
+            : 'absent',
+
+      }))
+
+
+    try {
+
+      const reponse = await fetch(
+        `${API_URL}/api/presences`,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+
+          body: JSON.stringify({
+
+            enseignant_id:
+              utilisateur.id,
+
+            classe_id:
+              Number(classeSelectionnee),
+
+            presences:
+              donneesPresences,
+
+          }),
+        }
+      )
+
+
+      const donnees =
+        await reponse.json()
+
+
+      if (!reponse.ok) {
+
+        alert(
+          donnees.erreur ||
+          'Erreur lors de l’enregistrement.'
+        )
+
+        return
+
+      }
+
+
+      alert(
+        '✅ Présences enregistrées avec succès !'
+      )
+
+    } catch (erreur) {
+
+      console.error(erreur)
+
+      alert(
+        'Impossible de contacter le serveur.'
+      )
+
+    }
+
   }
-}
+
+
+  // =====================================================
+  // AFFICHAGE
+  // =====================================================
 
   return (
+
     <div className="space-y-6">
 
-      {/* En-tête */}
+      {/* =================================================
+          EN-TÊTE
+      ================================================= */}
+
       <div>
 
         <p className="text-sm font-medium text-blue-600">
           Gestion scolaire
         </p>
 
-        <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">
+        <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
           Mes élèves
         </h1>
 
@@ -199,101 +316,111 @@ function Eleves() {
 
       </div>
 
-      {/* Sélection classe */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
 
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+      {/* =================================================
+          MA CLASSE
+      ================================================= */}
 
-          <div className="flex-1">
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:p-6">
 
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Classe
-            </label>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-            <select
-              value={classeSelectionnee}
-              onChange={(e) =>
-                setClasseSelectionnee(e.target.value)
-              }
-              className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-            >
+          <div>
 
-              <option value="">
-                Sélectionner une classe
-              </option>
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+              Ma classe
+            </p>
 
-              {classes.map((classe) => (
-                <option
-                  key={classe.id}
-                  value={classe.id}
-                >
-                  {classe.nom} — {classe.section}
-                </option>
-              ))}
+            <h2 className="mt-1 text-xl font-bold text-slate-900">
+              {nomClasse}
+            </h2>
 
-            </select>
+            <p className="mt-1 text-sm text-slate-500">
+              Cette classe vous a été attribuée par l'administration.
+            </p>
 
           </div>
 
-          {classeSelectionnee && (
-            <div className="flex gap-2">
 
-              <div className="px-4 py-2.5 rounded-xl bg-green-50 text-green-700 text-sm font-semibold">
-                🟢 {totalPresents} présents
-              </div>
+          <div className="flex gap-2">
 
-              <div className="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-semibold">
-                🔴 {totalAbsents} absents
-              </div>
-
+            <div className="rounded-xl bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700">
+              🟢 {totalPresents} présents
             </div>
-          )}
+
+            <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600">
+              🔴 {totalAbsents} absents
+            </div>
+
+          </div>
 
         </div>
 
       </div>
 
-      {/* Aucun choix */}
-      {!classeSelectionnee && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
 
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center">
+      {/* =================================================
+          SI AUCUNE CLASSE
+      ================================================= */}
+
+      {!classeSelectionnee && (
+
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-10 text-center">
+
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100">
+
             <Users
               size={30}
-              className="text-blue-500"
+              className="text-red-500"
             />
+
           </div>
 
           <h2 className="mt-4 text-lg font-bold text-slate-800">
-            Sélectionnez une classe
+            Aucune classe attribuée
           </h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            Choisissez une classe pour afficher la liste de vos élèves.
+            Votre compte n'est associé à aucune classe.
+            Veuillez contacter l'administration.
           </p>
 
         </div>
+
       )}
 
-      {/* Chargement */}
+
+      {/* =================================================
+          CHARGEMENT
+      ================================================= */}
+
       {chargement && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
 
           <p className="text-sm text-slate-500">
             Chargement des élèves...
           </p>
 
         </div>
+
       )}
 
-      {/* Liste élèves */}
-      {classeSelectionnee && !chargement && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
 
-          {/* En-tête */}
-          <div className="p-4 sm:p-6 border-b border-slate-100">
+      {/* =================================================
+          LISTE DES ÉLÈVES
+      ================================================= */}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {classeSelectionnee &&
+        !chargement && (
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
+          {/* EN-TÊTE */}
+
+          <div className="border-b border-slate-100 p-4 sm:p-6">
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
 
@@ -301,11 +428,14 @@ function Eleves() {
                   Liste des élèves
                 </h2>
 
-                <p className="text-sm text-slate-500 mt-1">
-                  {eleves.length} élève(s) dans cette classe
+                <p className="mt-1 text-sm text-slate-500">
+                  {eleves.length} élève(s) dans {nomClasse}
                 </p>
 
               </div>
+
+
+              {/* RECHERCHE */}
 
               <div className="relative">
 
@@ -319,9 +449,11 @@ function Eleves() {
                   placeholder="Rechercher un élève..."
                   value={recherche}
                   onChange={(e) =>
-                    setRecherche(e.target.value)
+                    setRecherche(
+                      e.target.value
+                    )
                   }
-                  className="w-full sm:w-64 h-10 pl-10 pr-4 rounded-xl border border-slate-200 outline-none text-sm focus:border-blue-500"
+                  className="h-10 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm outline-none focus:border-blue-500 sm:w-64"
                 />
 
               </div>
@@ -330,109 +462,131 @@ function Eleves() {
 
           </div>
 
-          {/* Élèves */}
+
+          {/* ÉLÈVES */}
+
           <div className="divide-y divide-slate-100">
 
-            {elevesFiltres.map((eleve, index) => {
+            {elevesFiltres.map(
+              (eleve, index) => {
 
-              const present = presences[eleve.id]
+                const present =
+                  presences[eleve.id]
 
-              return (
-                <div
-                  key={eleve.id}
-                  className="p-4 sm:p-5"
-                >
+                return (
 
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div
+                    key={eleve.id}
+                    className="p-4 sm:p-5"
+                  >
 
-                    {/* Élève */}
-                    <div className="flex items-center gap-3 lg:w-1/4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
 
-                      <div className="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
-                        {index + 1}
+                      {/* ÉLÈVE */}
+
+                      <div className="flex items-center gap-3 lg:w-1/4">
+
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600">
+
+                          {index + 1}
+
+                        </div>
+
+                        <div>
+
+                          <p className="font-semibold text-slate-800">
+                            {eleve.prenom}{' '}
+                            {eleve.nom}
+                          </p>
+
+                          <p className="text-xs text-slate-400">
+                            Élève #{eleve.id}
+                          </p>
+
+                        </div>
+
                       </div>
 
-                      <div>
-                        <p className="font-semibold text-slate-800">
-                          {eleve.prenom} {eleve.nom}
-                        </p>
 
-                        <p className="text-xs text-slate-400">
-                          Élève #{eleve.id}
-                        </p>
-                      </div>
+                      {/* PRÉSENCE */}
 
-                    </div>
+                      <div className="flex gap-2">
 
-                    {/* Présence */}
-                    <div className="flex gap-2">
-
-                      <button
-                        onClick={() =>
-                          changerPresence(
-                            eleve.id,
-                            true
-                          )
-                        }
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
-                          present
-                            ? 'bg-green-100 text-green-700 ring-2 ring-green-500/20'
-                            : 'bg-slate-100 text-slate-500 hover:bg-green-50 hover:text-green-600'
-                        }`}
-                      >
-
-                        <Check size={17} />
-
-                        Présent
-
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          changerPresence(
-                            eleve.id,
-                            false
-                          )
-                        }
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
-                          !present
-                            ? 'bg-red-100 text-red-700 ring-2 ring-red-500/20'
-                            : 'bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600'
-                        }`}
-                      >
-
-                        <X size={17} />
-
-                        Absent
-
-                      </button>
-
-                    </div>
-
-                    {/* Appréciation */}
-                    <div className="flex-1">
-
-                      <div className="relative">
-
-                        <MessageSquare
-                          size={17}
-                          className="absolute left-3 top-3 text-slate-400"
-                        />
-
-                        <input
-                          type="text"
-                          value={
-                            appreciations[eleve.id] || ''
-                          }
-                          onChange={(e) =>
-                            changerAppreciation(
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changerPresence(
                               eleve.id,
-                              e.target.value
+                              true
                             )
                           }
-                          placeholder="Ajouter une appréciation..."
-                          className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 outline-none text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        />
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            present
+                              ? 'bg-green-100 text-green-700 ring-2 ring-green-500/20'
+                              : 'bg-slate-100 text-slate-500 hover:bg-green-50 hover:text-green-600'
+                          }`}
+                        >
+
+                          <Check size={17} />
+
+                          Présent
+
+                        </button>
+
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changerPresence(
+                              eleve.id,
+                              false
+                            )
+                          }
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            !present
+                              ? 'bg-red-100 text-red-700 ring-2 ring-red-500/20'
+                              : 'bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600'
+                          }`}
+                        >
+
+                          <X size={17} />
+
+                          Absent
+
+                        </button>
+
+                      </div>
+
+
+                      {/* APPRÉCIATION */}
+
+                      <div className="flex-1">
+
+                        <div className="relative">
+
+                          <MessageSquare
+                            size={17}
+                            className="absolute left-3 top-3 text-slate-400"
+                          />
+
+                          <input
+                            type="text"
+                            value={
+                              appreciations[
+                                eleve.id
+                              ] || ''
+                            }
+                            onChange={(e) =>
+                              changerAppreciation(
+                                eleve.id,
+                                e.target.value
+                              )
+                            }
+                            placeholder="Ajouter une appréciation..."
+                            className="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          />
+
+                        </div>
 
                       </div>
 
@@ -440,11 +594,14 @@ function Eleves() {
 
                   </div>
 
-                </div>
-              )
-            })}
+                )
+
+              }
+            )}
+
 
             {elevesFiltres.length === 0 && (
+
               <div className="p-10 text-center">
 
                 <p className="text-sm text-slate-500">
@@ -452,17 +609,22 @@ function Eleves() {
                 </p>
 
               </div>
+
             )}
 
           </div>
 
-          {/* Bouton */}
+
+          {/* BOUTON */}
+
           {eleves.length > 0 && (
-            <div className="p-4 sm:p-6 border-t border-slate-100 flex justify-end">
+
+            <div className="flex justify-end border-t border-slate-100 p-4 sm:p-6">
 
               <button
+                type="button"
                 onClick={enregistrerAppel}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 sm:w-auto"
               >
 
                 <Save size={18} />
@@ -472,12 +634,15 @@ function Eleves() {
               </button>
 
             </div>
+
           )}
 
         </div>
+
       )}
 
     </div>
+
   )
 }
 
