@@ -34,6 +34,7 @@ import PreparationsAdmin from './pages/PreparationsAdmin'
 import PreparationsAdminDetail from './pages/PreparationsAdminDetail'
 import RapportsAdmin from './pages/RapportsAdmin'
 import HorairesAdmin from './pages/HorairesAdmin';
+import MatieresAdmin from './pages/MatieresAdmin'
 
 function App() {
 
@@ -219,6 +220,7 @@ function App() {
               path="eleves"
               element={<ElevesAdmin />}
             />
+            <Route path="matieres" element={<MatieresAdmin />} />
 
             <Route
               path="preparations"
