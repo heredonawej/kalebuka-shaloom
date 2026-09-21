@@ -53,6 +53,48 @@ router.get('/classe/:classeId', async (req, res) => {
     });
   }
 });
+/*
+  GET : récupérer tous les emplois du temps
+  Utilisé par l'administration
+*/
+router.get('/', async (req, res) => {
+  try {
+    const resultat = await pool.query(`
+      SELECT
+        h.id,
+        h.classe_id,
+        h.jour,
+        h.heure_debut,
+        h.heure_fin,
+        h.matiere,
+        c.nom AS classe_nom,
+        c.section AS classe_section
+      FROM horaires h
+      INNER JOIN classes c ON c.id = h.classe_id
+      ORDER BY
+        c.section,
+        c.nom,
+        CASE h.jour
+          WHEN 'Lundi' THEN 1
+          WHEN 'Mardi' THEN 2
+          WHEN 'Mercredi' THEN 3
+          WHEN 'Jeudi' THEN 4
+          WHEN 'Vendredi' THEN 5
+          WHEN 'Samedi' THEN 6
+          ELSE 7
+        END,
+        h.heure_debut
+    `);
+
+    res.json(resultat.rows);
+  } catch (error) {
+    console.error('Erreur récupération de tous les horaires :', error);
+
+    res.status(500).json({
+      erreur: 'Impossible de récupérer les horaires.',
+    });
+  }
+});
 
 /*
   POST : enregistrer toute la grille d'une classe
