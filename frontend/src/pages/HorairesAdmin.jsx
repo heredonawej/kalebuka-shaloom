@@ -172,15 +172,21 @@ function HorairesAdmin() {
    * =====================================================
    */
 
-  const trouverHoraire = (jour, creneau) => {
-    return horaires.find(
-      (horaire) =>
-        horaire.jour === jour &&
-        horaire.heure_debut === creneau.heure_debut &&
-        horaire.heure_fin === creneau.heure_fin
-    )
-  }
+  const normaliserHeure = (heure) => {
+  if (!heure) return ''
+  return String(heure).slice(0, 5)
+}
 
+const trouverHoraire = (jour, creneau) => {
+  return horaires.find(
+    (horaire) =>
+      horaire.jour === jour &&
+      normaliserHeure(horaire.heure_debut) ===
+        creneau.heure_debut &&
+      normaliserHeure(horaire.heure_fin) ===
+        creneau.heure_fin
+  )
+}
   /*
    * =====================================================
    * MODIFIER UNE CASE
@@ -195,13 +201,14 @@ function HorairesAdmin() {
     const matiere = nouvelleMatiere.trim()
 
     setHoraires((anciensHoraires) => {
-      const index = anciensHoraires.findIndex(
-        (horaire) =>
-          horaire.jour === jour &&
-          horaire.heure_debut ===
-            creneau.heure_debut &&
-          horaire.heure_fin === creneau.heure_fin
-      )
+     const index = anciensHoraires.findIndex(
+  (horaire) =>
+    horaire.jour === jour &&
+    normaliserHeure(horaire.heure_debut) ===
+      creneau.heure_debut &&
+    normaliserHeure(horaire.heure_fin) ===
+      creneau.heure_fin
+)
 
       if (index !== -1) {
         const nouveauxHoraires = [...anciensHoraires]
