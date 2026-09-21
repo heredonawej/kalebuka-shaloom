@@ -138,40 +138,55 @@ function Eleves() {
 
 
   // =====================================================
-  // CHARGER L'HORAIRE DE LA CLASSE
-  // =====================================================
+// CHARGER L'HORAIRE LORSQU'ON OUVRE L'ONGLET
+// =====================================================
 
-  useEffect(() => {
-    if (!classeSelectionnee) {
-      setHoraires([])
-      return
-    }
+useEffect(() => {
+  if (onglet !== 'horaire') return
+  if (!classeSelectionnee) return
 
-    const chargerHoraire = async () => {
-      setChargementHoraire(true)
+  const chargerHoraire = async () => {
+    setChargementHoraire(true)
 
-      try {
-        const reponse = await fetch(
-          `${API_URL}/api/horaires/classe/${classeSelectionnee}`
+    try {
+      const url =
+        `${API_URL}/api/horaires/classe/${classeSelectionnee}`
+
+      console.log('📅 Chargement horaire :', url)
+
+      const reponse = await fetch(url)
+
+      if (!reponse.ok) {
+        throw new Error(
+          `Erreur serveur : ${reponse.status}`
         )
-
-        if (!reponse.ok) {
-          throw new Error("Impossible de récupérer l'horaire.")
-        }
-
-        const donnees = await reponse.json()
-        setHoraires(Array.isArray(donnees) ? donnees : [])
-      } catch (erreur) {
-        console.error('Erreur chargement horaire :', erreur)
-        setHoraires([])
-      } finally {
-        setChargementHoraire(false)
       }
+
+      const donnees = await reponse.json()
+
+      console.log('📅 Horaires reçus :', donnees)
+
+      setHoraires(
+        Array.isArray(donnees)
+          ? donnees
+          : []
+      )
+
+    } catch (erreur) {
+      console.error(
+        '❌ Erreur chargement horaire :',
+        erreur
+      )
+
+      setHoraires([])
+    } finally {
+      setChargementHoraire(false)
     }
+  }
 
-    chargerHoraire()
-  }, [classeSelectionnee])
+  chargerHoraire()
 
+}, [onglet, classeSelectionnee])
 
   // =====================================================
   // CHANGER PRÉSENCE
