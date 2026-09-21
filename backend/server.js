@@ -8,7 +8,7 @@ import routesClasses from './routes/classes.js';
 import routesPresences from './routes/presences.js'
 import routesAdmin from './routes/admin.js'
 import routesNotes from './routes/notes.js';
-import routesHoraires from './routes/horaires.js'
+import routesHoraires from './routes/horaires.js';
 
 dotenv.config();
 

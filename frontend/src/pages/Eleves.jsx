@@ -7,7 +7,21 @@ import {
   X,
   MessageSquare,
   Save,
+  CalendarDays,
+  Clock3,
 } from 'lucide-react'
+
+const JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+
+const CRENEAUX = [
+  { heure_debut: '07:30', heure_fin: '08:15' },
+  { heure_debut: '08:15', heure_fin: '09:00' },
+  { heure_debut: '09:00', heure_fin: '09:45' },
+  { recreation: true, heure_debut: '09:45', heure_fin: '10:00' },
+  { heure_debut: '10:00', heure_fin: '10:45' },
+  { heure_debut: '10:45', heure_fin: '11:30' },
+  { heure_debut: '11:30', heure_fin: '12:15' },
+]
 
 function Eleves() {
 
@@ -53,6 +67,10 @@ function Eleves() {
 
   const [appreciations, setAppreciations] =
     useState({})
+
+  const [onglet, setOnglet] = useState('eleves')
+  const [horaires, setHoraires] = useState([])
+  const [chargementHoraire, setChargementHoraire] = useState(false)
 
 
   // =====================================================
@@ -116,6 +134,42 @@ function Eleves() {
 
     chargerEleves()
 
+  }, [classeSelectionnee])
+
+
+  // =====================================================
+  // CHARGER L'HORAIRE DE LA CLASSE
+  // =====================================================
+
+  useEffect(() => {
+    if (!classeSelectionnee) {
+      setHoraires([])
+      return
+    }
+
+    const chargerHoraire = async () => {
+      setChargementHoraire(true)
+
+      try {
+        const reponse = await fetch(
+          `${API_URL}/api/horaires/classe/${classeSelectionnee}`
+        )
+
+        if (!reponse.ok) {
+          throw new Error("Impossible de récupérer l'horaire.")
+        }
+
+        const donnees = await reponse.json()
+        setHoraires(Array.isArray(donnees) ? donnees : [])
+      } catch (erreur) {
+        console.error('Erreur chargement horaire :', erreur)
+        setHoraires([])
+      } finally {
+        setChargementHoraire(false)
+      }
+    }
+
+    chargerHoraire()
   }, [classeSelectionnee])
 
 
@@ -359,6 +413,22 @@ function Eleves() {
       </div>
 
 
+      {classeSelectionnee && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setOnglet('eleves')} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${onglet === 'eleves' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Users size={18} />
+              Élèves
+            </button>
+            <button type="button" onClick={() => setOnglet('horaire')} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${onglet === 'horaire' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <CalendarDays size={18} />
+              Horaire
+            </button>
+          </div>
+        </div>
+      )}
+
+
       {/* =================================================
           SI AUCUNE CLASSE
       ================================================= */}
@@ -394,7 +464,7 @@ function Eleves() {
           CHARGEMENT
       ================================================= */}
 
-      {chargement && (
+      {onglet === 'eleves' && chargement && (
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
 
@@ -411,7 +481,7 @@ function Eleves() {
           LISTE DES ÉLÈVES
       ================================================= */}
 
-      {classeSelectionnee &&
+      {onglet === 'eleves' && classeSelectionnee &&
         !chargement && (
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">

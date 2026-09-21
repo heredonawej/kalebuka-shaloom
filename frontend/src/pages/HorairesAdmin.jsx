@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays,
   Clock3,
-  Edit3,
-  Plus,
+  Save,
+  RefreshCw,
+  CheckCircle2,
   Trash2,
-  X,
 } from 'lucide-react';
 
 const API_URL = 'https://kalebuka-shaloom.onrender.com/api';
@@ -19,229 +19,208 @@ const JOURS = [
   'Samedi',
 ];
 
+const CRENEAUX = [
+  { heure_debut: '07:30', heure_fin: '08:15' },
+  { heure_debut: '08:15', heure_fin: '09:00' },
+  { heure_debut: '09:00', heure_fin: '09:45' },
+
+  // Récréation automatique
+  { recreation: true, heure_debut: '09:45', heure_fin: '10:00' },
+
+  { heure_debut: '10:00', heure_fin: '10:45' },
+  { heure_debut: '10:45', heure_fin: '11:30' },
+  { heure_debut: '11:30', heure_fin: '12:15' },
+];
+
 function HorairesAdmin() {
-  const [horaires, setHoraires] = useState([]);
   const [classes, setClasses] = useState([]);
-
-  const [chargement, setChargement] = useState(true);
+  const [classeId, setClasseId] = useState('');
+  const [horaires, setHoraires] = useState({});
+  const [chargement, setChargement] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
-
   const [message, setMessage] = useState('');
   const [erreur, setErreur] = useState('');
 
-  const [horaireModification, setHoraireModification] = useState(null);
-
-  const [formulaire, setFormulaire] = useState({
-    classe_id: '',
-    jour: 'Lundi',
-    heure_debut: '',
-    heure_fin: '',
-    matiere: '',
-  });
-
-  const [filtreClasse, setFiltreClasse] = useState('Toutes');
-
-  useEffect(() => {
-    chargerDonnees();
-  }, []);
-
-  const chargerDonnees = async () => {
-    setChargement(true);
-    setErreur('');
-
+  /*
+   * Charger les classes
+   */
+  const chargerClasses = async () => {
     try {
-      const [classesResponse, horairesResponse] = await Promise.all([
-        fetch(`${API_URL}/classes`),
-        fetch(`${API_URL}/horaires`),
-      ]);
+      setChargement(true);
+      setErreur('');
 
-      if (!classesResponse.ok) {
+      const response = await fetch(`${API_URL}/classes`);
+
+      if (!response.ok) {
         throw new Error('Impossible de récupérer les classes.');
       }
 
-      if (!horairesResponse.ok) {
-        throw new Error('Impossible de récupérer les horaires.');
-      }
+      const data = await response.json();
 
-      const classesData = await classesResponse.json();
-      const horairesData = await horairesResponse.json();
-
-      setClasses(
-        Array.isArray(classesData) ? classesData : []
-      );
-
-      setHoraires(
-        Array.isArray(horairesData) ? horairesData : []
-      );
+      setClasses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
-
-      setErreur(
-        error.message || 'Erreur lors du chargement.'
-      );
+      setErreur(error.message);
     } finally {
       setChargement(false);
     }
   };
 
-  const horairesFiltres = useMemo(() => {
-    if (filtreClasse === 'Toutes') {
-      return horaires;
+  useEffect(() => {
+    chargerClasses();
+  }, []);
+
+  /*
+   * Charger l'emploi du temps de la classe sélectionnée
+   */
+  const chargerHoraireClasse = async (id) => {
+    if (!id) {
+      setHoraires({});
+      return;
     }
 
-    return horaires.filter(
-      (horaire) =>
-        String(horaire.classe_id) === String(filtreClasse)
-    );
-  }, [horaires, filtreClasse]);
+    try {
+      setChargement(true);
+      setErreur('');
+      setMessage('');
 
-  const horairesParJour = useMemo(() => {
-    return JOURS.reduce((acc, jour) => {
-      acc[jour] = horairesFiltres
-        .filter((horaire) => horaire.jour === jour)
-        .sort((a, b) =>
-          String(a.heure_debut).localeCompare(
-            String(b.heure_debut)
-          )
+      const response = await fetch(
+        `${API_URL}/horaires/classe/${id}`
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Impossible de récupérer l'emploi du temps."
         );
+      }
 
-      return acc;
-    }, {});
-  }, [horairesFiltres]);
+      const data = await response.json();
 
-  const modifierChamp = (champ, valeur) => {
-    setFormulaire((ancien) => ({
+      const grille = {};
+
+      data.forEach((horaire) => {
+        const cle = `${horaire.jour}_${horaire.heure_debut}`;
+
+        grille[cle] = horaire.matiere;
+      });
+
+      setHoraires(grille);
+    } catch (error) {
+      console.error(error);
+      setErreur(error.message);
+      setHoraires({});
+    } finally {
+      setChargement(false);
+    }
+  };
+
+  /*
+   * Changement de classe
+   */
+  const handleClasseChange = async (event) => {
+    const id = event.target.value;
+
+    setClasseId(id);
+    await chargerHoraireClasse(id);
+  };
+
+  /*
+   * Modifier une case
+   */
+  const modifierMatiere = (jour, heure, valeur) => {
+    const cle = `${jour}_${heure}`;
+
+    setHoraires((ancien) => ({
       ...ancien,
-      [champ]: valeur,
+      [cle]: valeur,
     }));
   };
 
-  const reinitialiserFormulaire = () => {
-    setFormulaire({
-      classe_id: '',
-      jour: 'Lundi',
-      heure_debut: '',
-      heure_fin: '',
-      matiere: '',
-    });
-
-    setHoraireModification(null);
-    setMessage('');
-    setErreur('');
-  };
-
-  const enregistrerHoraire = async (e) => {
-    e.preventDefault();
-
-    setMessage('');
-    setErreur('');
-
-    if (
-      !formulaire.classe_id ||
-      !formulaire.jour ||
-      !formulaire.heure_debut ||
-      !formulaire.heure_fin ||
-      !formulaire.matiere.trim()
-    ) {
-      setErreur('Veuillez remplir tous les champs.');
+  /*
+   * Enregistrer toute la grille
+   */
+  const enregistrerHoraire = async () => {
+    if (!classeId) {
+      setErreur('Veuillez sélectionner une classe.');
       return;
     }
-
-    if (formulaire.heure_debut >= formulaire.heure_fin) {
-      setErreur(
-        "L'heure de fin doit être supérieure à l'heure de début."
-      );
-      return;
-    }
-
-    setEnregistrement(true);
 
     try {
-      const url = horaireModification
-        ? `${API_URL}/horaires/${horaireModification.id}`
-        : `${API_URL}/horaires`;
+      setEnregistrement(true);
+      setErreur('');
+      setMessage('');
 
-      const method = horaireModification ? 'PUT' : 'POST';
+      const grille = [];
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          classe_id: Number(formulaire.classe_id),
-          jour: formulaire.jour,
-          heure_debut: formulaire.heure_debut,
-          heure_fin: formulaire.heure_fin,
-          matiere: formulaire.matiere.trim(),
-        }),
+      JOURS.forEach((jour) => {
+        CRENEAUX.forEach((creneau) => {
+          if (creneau.recreation) return;
+
+          const cle = `${jour}_${creneau.heure_debut}`;
+          const matiere = horaires[cle]?.trim();
+
+          if (matiere) {
+            grille.push({
+              jour,
+              heure_debut: creneau.heure_debut,
+              heure_fin: creneau.heure_fin,
+              matiere,
+            });
+          }
+        });
       });
+
+      const response = await fetch(
+        `${API_URL}/horaires/grille`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            classe_id: classeId,
+            horaires: grille,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.erreur ||
-            data.message ||
-            "Impossible d'enregistrer l'horaire."
+            "Impossible d'enregistrer l'emploi du temps."
         );
       }
 
-      setMessage(
-        horaireModification
-          ? 'Horaire modifié avec succès.'
-          : 'Horaire ajouté avec succès.'
-      );
-
-      reinitialiserFormulaire();
-
-      await chargerDonnees();
+      setMessage('Emploi du temps enregistré avec succès.');
     } catch (error) {
       console.error(error);
-
-      setErreur(
-        error.message || 'Une erreur est survenue.'
-      );
+      setErreur(error.message);
     } finally {
       setEnregistrement(false);
     }
   };
 
-  const modifierHoraire = (horaire) => {
-    setHoraireModification(horaire);
+  /*
+   * Supprimer l'emploi du temps
+   */
+  const supprimerHoraire = async () => {
+    if (!classeId) return;
 
-    setFormulaire({
-      classe_id: String(horaire.classe_id),
-      jour: horaire.jour,
-      heure_debut: String(horaire.heure_debut).slice(0, 5),
-      heure_fin: String(horaire.heure_fin).slice(0, 5),
-      matiere: horaire.matiere || '',
-    });
-
-    setMessage('');
-    setErreur('');
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
-  };
-
-  const supprimerHoraire = async (horaire) => {
     const confirmation = window.confirm(
-      `Voulez-vous supprimer l'horaire "${horaire.matiere}" du ${horaire.jour} ?`
+      "Voulez-vous vraiment supprimer tout l'emploi du temps de cette classe ?"
     );
 
-    if (!confirmation) {
-      return;
-    }
-
-    setMessage('');
-    setErreur('');
+    if (!confirmation) return;
 
     try {
+      setChargement(true);
+      setErreur('');
+      setMessage('');
+
       const response = await fetch(
-        `${API_URL}/horaires/${horaire.id}`,
+        `${API_URL}/horaires/classe/${classeId}`,
         {
           method: 'DELETE',
         }
@@ -252,453 +231,294 @@ function HorairesAdmin() {
       if (!response.ok) {
         throw new Error(
           data.erreur ||
-            data.message ||
-            "Impossible de supprimer l'horaire."
+            "Impossible de supprimer l'emploi du temps."
         );
       }
 
-      setMessage('Horaire supprimé avec succès.');
-
-      await chargerDonnees();
+      setHoraires({});
+      setMessage('Emploi du temps supprimé.');
     } catch (error) {
       console.error(error);
-
-      setErreur(
-        error.message || 'Une erreur est survenue.'
-      );
+      setErreur(error.message);
+    } finally {
+      setChargement(false);
     }
   };
 
-  const obtenirNomClasse = (classeId) => {
-    const classe = classes.find(
-      (item) =>
-        String(item.id) === String(classeId)
+  const classeSelectionnee = useMemo(() => {
+    return classes.find(
+      (classe) => String(classe.id) === String(classeId)
     );
-
-    return classe?.nom || 'Classe inconnue';
-  };
-
-  if (chargement) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-sm text-slate-500">
-          Chargement des horaires...
-        </p>
-      </div>
-    );
-  }
+  }, [classes, classeId]);
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
+      <div className="mx-auto max-w-[1500px]">
 
-      {/* EN-TÊTE */}
-
-      <div>
-        <p className="text-sm font-semibold text-blue-600">
-          Organisation scolaire
-        </p>
-
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">
-          Gestion des horaires
-        </h1>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Organisez l'horaire de chaque classe.
-        </p>
-      </div>
-
-      {/* MESSAGES */}
-
-      {message && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {message}
-        </div>
-      )}
-
-      {erreur && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {erreur}
-        </div>
-      )}
-
-      {/* FORMULAIRE */}
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-        <div className="mb-5 flex items-center justify-between">
-
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-
-              {horaireModification ? (
-                <>
-                  <Edit3 size={20} />
-                  Modifier un horaire
-                </>
-              ) : (
-                <>
-                  <Plus size={20} />
-                  Ajouter un horaire
-                </>
-              )}
-
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Définissez l'horaire de la classe.
-            </p>
-          </div>
-
-          {horaireModification && (
-            <button
-              type="button"
-              onClick={reinitialiserFormulaire}
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"
-            >
-              <X size={20} />
-            </button>
-          )}
-
-        </div>
-
-        <form
-          onSubmit={enregistrerHoraire}
-          className="grid gap-4 md:grid-cols-2"
-        >
-
-          {/* CLASSE */}
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Classe *
-            </label>
-
-            <select
-              value={formulaire.classe_id}
-              onChange={(e) =>
-                modifierChamp(
-                  'classe_id',
-                  e.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500"
-            >
-              <option value="">
-                Sélectionner une classe
-              </option>
-
-              {classes.map((classe) => (
-                <option
-                  key={classe.id}
-                  value={classe.id}
-                >
-                  {classe.nom}
-                  {classe.section
-                    ? ` — ${classe.section}`
-                    : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* JOUR */}
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Jour *
-            </label>
-
-            <select
-              value={formulaire.jour}
-              onChange={(e) =>
-                modifierChamp(
-                  'jour',
-                  e.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500"
-            >
-              {JOURS.map((jour) => (
-                <option
-                  key={jour}
-                  value={jour}
-                >
-                  {jour}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* MATIERE */}
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Matière *
-            </label>
-
-            <input
-              type="text"
-              value={formulaire.matiere}
-              onChange={(e) =>
-                modifierChamp(
-                  'matiere',
-                  e.target.value
-                )
-              }
-              placeholder="Ex : Mathématiques"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {/* HEURE DEBUT */}
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Heure de début *
-            </label>
-
-            <input
-              type="time"
-              value={formulaire.heure_debut}
-              onChange={(e) =>
-                modifierChamp(
-                  'heure_debut',
-                  e.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {/* HEURE FIN */}
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Heure de fin *
-            </label>
-
-            <input
-              type="time"
-              value={formulaire.heure_fin}
-              onChange={(e) =>
-                modifierChamp(
-                  'heure_fin',
-                  e.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {/* BOUTONS */}
-
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row md:col-span-2">
-
-            <button
-              type="submit"
-              disabled={enregistrement}
-              className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {horaireModification ? (
-                <Edit3 size={18} />
-              ) : (
-                <Plus size={18} />
-              )}
-
-              {enregistrement
-                ? 'Enregistrement...'
-                : horaireModification
-                  ? "Modifier l'horaire"
-                  : "Ajouter l'horaire"}
-            </button>
-
-            {horaireModification && (
-              <button
-                type="button"
-                onClick={reinitialiserFormulaire}
-                className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Annuler
-              </button>
-            )}
-
-          </div>
-
-        </form>
-      </div>
-
-      {/* FILTRE */}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">
-            Horaires enregistrés
-          </h2>
-
-          <p className="text-sm text-slate-500">
-            Consultez les horaires des classes.
-          </p>
-        </div>
-
-        <select
-          value={filtreClasse}
-          onChange={(e) =>
-            setFiltreClasse(e.target.value)
-          }
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500"
-        >
-          <option value="Toutes">
-            Toutes les classes
-          </option>
-
-          {classes.map((classe) => (
-            <option
-              key={classe.id}
-              value={classe.id}
-            >
-              {classe.nom}
-            </option>
-          ))}
-        </select>
-
-      </div>
-
-      {/* HORAIRES PAR JOUR */}
-
-      <div className="grid gap-5 lg:grid-cols-2">
-
-        {JOURS.map((jour) => {
-
-          const horairesJour =
-            horairesParJour[jour] || [];
-
-          return (
-            <div
-              key={jour}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-            >
-
-              <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4">
-
-                <div className="rounded-xl bg-blue-600 p-2 text-white">
-                  <CalendarDays size={18} />
+        {/* EN-TÊTE */}
+        <div className="mb-6 rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-6 text-white shadow-xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-3">
+                <div className="rounded-2xl bg-white/20 p-3">
+                  <CalendarDays size={28} />
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-slate-900">
-                    {jour}
-                  </h3>
+                  <h1 className="text-2xl font-bold md:text-3xl">
+                    Emploi du temps
+                  </h1>
 
-                  <p className="text-xs text-slate-500">
-                    {horairesJour.length}{' '}
-                    {horairesJour.length > 1
-                      ? 'cours'
-                      : 'cours'}
+                  <p className="text-sm text-blue-100">
+                    Organisation des cours par classe
                   </p>
                 </div>
-
               </div>
 
-              {horairesJour.length === 0 ? (
-
-                <div className="p-6 text-center text-sm text-slate-400">
-                  Aucun cours prévu.
-                </div>
-
-              ) : (
-
-                <div className="divide-y divide-slate-100">
-
-                  {horairesJour.map((horaire) => (
-
-                    <div
-                      key={horaire.id}
-                      className="p-4 transition hover:bg-slate-50"
-                    >
-
-                      <div className="flex items-start justify-between gap-4">
-
-                        <div className="flex min-w-0 gap-3">
-
-                          <div className="mt-0.5 rounded-xl bg-blue-50 p-2 text-blue-600">
-                            <Clock3 size={18} />
-                          </div>
-
-                          <div className="min-w-0">
-
-                            <p className="font-bold text-slate-900">
-                              {horaire.matiere}
-                            </p>
-
-                            <p className="mt-1 text-sm font-medium text-blue-600">
-                              {String(
-                                horaire.heure_debut
-                              ).slice(0, 5)}
-
-                              {' — '}
-
-                              {String(
-                                horaire.heure_fin
-                              ).slice(0, 5)}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                              {obtenirNomClasse(
-                                horaire.classe_id
-                              )}
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                        <div className="flex shrink-0 gap-1">
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              modifierHoraire(
-                                horaire
-                              )
-                            }
-                            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-blue-600"
-                            title="Modifier"
-                          >
-                            <Edit3 size={17} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              supprimerHoraire(
-                                horaire
-                              )
-                            }
-                            className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"
-                            title="Supprimer"
-                          >
-                            <Trash2 size={17} />
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-              )}
-
+              <p className="max-w-2xl text-sm leading-6 text-blue-50">
+                Sélectionnez une classe puis complétez directement
+                les matières dans la grille.
+              </p>
             </div>
-          );
-        })}
 
+            <div className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3">
+              <Clock3 size={20} />
+
+              <div>
+                <p className="text-xs text-blue-100">
+                  Durée d'un cours
+                </p>
+
+                <p className="font-bold">
+                  45 minutes
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CHOIX DE LA CLASSE */}
+        <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="rounded-xl bg-indigo-50 p-3 text-indigo-600">
+              <CalendarDays size={21} />
+            </div>
+
+            <div>
+              <h2 className="font-bold text-slate-800">
+                Choisir une classe
+              </h2>
+
+              <p className="text-sm text-slate-500">
+                L'emploi du temps sera enregistré pour cette classe.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="w-full md:max-w-md">
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Classe
+              </label>
+
+              <select
+                value={classeId}
+                onChange={handleClasseChange}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              >
+                <option value="">
+                  -- Sélectionner une classe --
+                </option>
+
+                {classes.map((classe) => (
+                  <option key={classe.id} value={classe.id}>
+                    {classe.nom}
+                    {classe.section
+                      ? ` — ${classe.section}`
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {classeSelectionnee && (
+              <div className="rounded-2xl bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                <span className="font-semibold">
+                  Classe sélectionnée :
+                </span>{' '}
+                {classeSelectionnee.nom}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* MESSAGES */}
+        {message && (
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
+            <CheckCircle2 size={20} />
+            {message}
+          </div>
+        )}
+
+        {erreur && (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            {erreur}
+          </div>
+        )}
+
+        {/* GRILLE */}
+        {!classeId ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+            <CalendarDays
+              size={48}
+              className="mx-auto mb-4 text-slate-300"
+            />
+
+            <h3 className="mb-2 text-lg font-bold text-slate-700">
+              Sélectionnez une classe
+            </h3>
+
+            <p className="text-sm text-slate-500">
+              La grille de l'emploi du temps apparaîtra ici.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* GRILLE RESPONSIVE */}
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1100px] border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="sticky left-0 z-10 w-[145px] border-b border-r border-slate-200 bg-slate-100 px-4 py-4 text-left text-sm font-bold text-slate-700">
+                        Heure
+                      </th>
+
+                      {JOURS.map((jour) => (
+                        <th
+                          key={jour}
+                          className="border-b border-r border-slate-200 px-4 py-4 text-center text-sm font-bold text-slate-700"
+                        >
+                          {jour}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {CRENEAUX.map((creneau, index) => {
+                      if (creneau.recreation) {
+                        return (
+                          <tr key={`recreation-${index}`}>
+                            <td
+                              colSpan={7}
+                              className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-center"
+                            >
+                              <div className="flex items-center justify-center gap-2 font-bold text-amber-700">
+                                <Clock3 size={18} />
+                                RÉCRÉATION
+                                <span className="font-normal">
+                                  ({creneau.heure_debut} –{' '}
+                                  {creneau.heure_fin})
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return (
+                        <tr
+                          key={`${creneau.heure_debut}-${creneau.heure_fin}`}
+                          className="hover:bg-slate-50"
+                        >
+                          <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-4 py-3">
+                            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                              <Clock3
+                                size={16}
+                                className="text-indigo-500"
+                              />
+
+                              <span>
+                                {creneau.heure_debut}
+                                <br />
+                                <span className="font-normal text-slate-400">
+                                  {creneau.heure_fin}
+                                </span>
+                              </span>
+                            </div>
+                          </td>
+
+                          {JOURS.map((jour) => {
+                            const cle = `${jour}_${creneau.heure_debut}`;
+
+                            return (
+                              <td
+                                key={cle}
+                                className="border-b border-r border-slate-200 p-2"
+                              >
+                                <input
+                                  type="text"
+                                  value={horaires[cle] || ''}
+                                  onChange={(e) =>
+                                    modifierMatiere(
+                                      jour,
+                                      creneau.heure_debut,
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Matière..."
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* BOUTONS */}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={supprimerHoraire}
+                disabled={chargement || enregistrement}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 size={18} />
+                Vider l'emploi du temps
+              </button>
+
+              <button
+                type="button"
+                onClick={() => chargerHoraireClasse(classeId)}
+                disabled={chargement || enregistrement}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw size={18} />
+                Actualiser
+              </button>
+
+              <button
+                type="button"
+                onClick={enregistrerHoraire}
+                disabled={enregistrement}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save size={18} />
+
+                {enregistrement
+                  ? 'Enregistrement...'
+                  : "Enregistrer l'emploi du temps"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
-
     </div>
   );
 }

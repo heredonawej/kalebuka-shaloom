@@ -12,45 +12,70 @@ const JOURS = [
   'Samedi',
 ];
 
-/* =========================================================
-   AJOUTER UN HORAIRE
-========================================================= */
+const CRENEAUX = [
+  { heure_debut: '07:30', heure_fin: '08:15' },
+  { heure_debut: '08:15', heure_fin: '09:00' },
+  { heure_debut: '09:00', heure_fin: '09:45' },
+  { heure_debut: '10:00', heure_fin: '10:45' },
+  { heure_debut: '10:45', heure_fin: '11:30' },
+  { heure_debut: '11:30', heure_fin: '12:15' },
+];
 
-router.post('/', async (req, res) => {
+/*
+  GET : récupérer l'emploi du temps d'une classe
+*/
+router.get('/classe/:classeId', async (req, res) => {
   try {
-    const {
-      classe_id,
-      jour,
-      heure_debut,
-      heure_fin,
-      matiere,
-    } = req.body;
+    const { classeId } = req.params;
 
-    if (
-      !classe_id ||
-      !jour ||
-      !heure_debut ||
-      !heure_fin ||
-      !matiere
-    ) {
+    const resultat = await pool.query(
+      `SELECT id, classe_id, jour, heure_debut, heure_fin, matiere
+       FROM horaires
+       WHERE classe_id = $1
+       ORDER BY
+         CASE jour
+           WHEN 'Lundi' THEN 1
+           WHEN 'Mardi' THEN 2
+           WHEN 'Mercredi' THEN 3
+           WHEN 'Jeudi' THEN 4
+           WHEN 'Vendredi' THEN 5
+           WHEN 'Samedi' THEN 6
+         END,
+         heure_debut`,
+      [classeId]
+    );
+
+    res.json(resultat.rows);
+  } catch (error) {
+    console.error('Erreur récupération horaires :', error);
+    res.status(500).json({
+      erreur: 'Impossible de récupérer les horaires.',
+    });
+  }
+});
+
+/*
+  POST : enregistrer toute la grille d'une classe
+*/
+router.post('/grille', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { classe_id, horaires } = req.body;
+
+    if (!classe_id) {
       return res.status(400).json({
-        erreur: 'Tous les champs sont obligatoires.',
+        erreur: 'La classe est obligatoire.',
       });
     }
 
-    if (!JOURS.includes(jour)) {
+    if (!Array.isArray(horaires)) {
       return res.status(400).json({
-        erreur: 'Jour invalide.',
+        erreur: 'Les horaires doivent être envoyés sous forme de tableau.',
       });
     }
 
-    if (heure_debut >= heure_fin) {
-      return res.status(400).json({
-        erreur: "L'heure de fin doit être après l'heure de début.",
-      });
-    }
-
-    const classe = await pool.query(
+    const classe = await client.query(
       `SELECT id FROM classes WHERE id = $1`,
       [classe_id]
     );
@@ -61,233 +86,79 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const resultat = await pool.query(
-      `
-      INSERT INTO horaires
-        (classe_id, jour, heure_debut, heure_fin, matiere)
-      VALUES
-        ($1, $2, $3, $4, $5)
-      RETURNING *
-      `,
-      [
-        classe_id,
+    await client.query('BEGIN');
+
+    // On supprime l'ancien emploi du temps de cette classe
+    await client.query(
+      `DELETE FROM horaires WHERE classe_id = $1`,
+      [classe_id]
+    );
+
+    // On enregistre uniquement les cases remplies
+    for (const horaire of horaires) {
+      const {
         jour,
         heure_debut,
         heure_fin,
-        matiere.trim(),
-      ]
-    );
+        matiere,
+      } = horaire;
 
-    res.status(201).json(resultat.rows[0]);
+      if (!JOURS.includes(jour)) continue;
+      if (!heure_debut || !heure_fin) continue;
+      if (!matiere || !matiere.trim()) continue;
+
+      await client.query(
+        `INSERT INTO horaires
+          (classe_id, jour, heure_debut, heure_fin, matiere)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          classe_id,
+          jour,
+          heure_debut,
+          heure_fin,
+          matiere.trim(),
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'Emploi du temps enregistré avec succès.',
+    });
   } catch (error) {
-    console.error('Erreur ajout horaire :', error);
+    await client.query('ROLLBACK');
+
+    console.error('Erreur enregistrement grille :', error);
 
     res.status(500).json({
-      erreur: "Erreur serveur lors de l'ajout de l'horaire.",
+      erreur: "Impossible d'enregistrer l'emploi du temps.",
     });
+  } finally {
+    client.release();
   }
 });
 
-/* =========================================================
-   HORAIRES D'UNE CLASSE
-========================================================= */
-
-router.get('/classe/:classeId', async (req, res) => {
+/*
+  DELETE : supprimer tout l'emploi du temps d'une classe
+*/
+router.delete('/classe/:classeId', async (req, res) => {
   try {
     const { classeId } = req.params;
 
-    const resultat = await pool.query(
-      `
-      SELECT
-        h.id,
-        h.classe_id,
-        h.jour,
-        h.heure_debut,
-        h.heure_fin,
-        h.matiere
-      FROM horaires h
-      WHERE h.classe_id = $1
-      ORDER BY
-        CASE h.jour
-          WHEN 'Lundi' THEN 1
-          WHEN 'Mardi' THEN 2
-          WHEN 'Mercredi' THEN 3
-          WHEN 'Jeudi' THEN 4
-          WHEN 'Vendredi' THEN 5
-          WHEN 'Samedi' THEN 6
-          ELSE 7
-        END,
-        h.heure_debut ASC
-      `,
+    await pool.query(
+      `DELETE FROM horaires WHERE classe_id = $1`,
       [classeId]
     );
 
-    res.json(resultat.rows);
-  } catch (error) {
-    console.error('Erreur récupération horaires :', error);
-
-    res.status(500).json({
-      erreur: 'Impossible de récupérer les horaires.',
-    });
-  }
-});
-
-/* =========================================================
-   TOUS LES HORAIRES
-========================================================= */
-
-router.get('/', async (req, res) => {
-  try {
-    const resultat = await pool.query(
-      `
-      SELECT
-        h.id,
-        h.classe_id,
-        h.jour,
-        h.heure_debut,
-        h.heure_fin,
-        h.matiere,
-        c.nom AS classe_nom,
-        c.section AS classe_section
-      FROM horaires h
-      INNER JOIN classes c
-        ON c.id = h.classe_id
-      ORDER BY
-        c.section ASC,
-        c.nom ASC,
-        CASE h.jour
-          WHEN 'Lundi' THEN 1
-          WHEN 'Mardi' THEN 2
-          WHEN 'Mercredi' THEN 3
-          WHEN 'Jeudi' THEN 4
-          WHEN 'Vendredi' THEN 5
-          WHEN 'Samedi' THEN 6
-          ELSE 7
-        END,
-        h.heure_debut ASC
-      `
-    );
-
-    res.json(resultat.rows);
-  } catch (error) {
-    console.error('Erreur récupération horaires :', error);
-
-    res.status(500).json({
-      erreur: 'Impossible de récupérer les horaires.',
-    });
-  }
-});
-
-/* =========================================================
-   MODIFIER UN HORAIRE
-========================================================= */
-
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const {
-      classe_id,
-      jour,
-      heure_debut,
-      heure_fin,
-      matiere,
-    } = req.body;
-
-    if (
-      !classe_id ||
-      !jour ||
-      !heure_debut ||
-      !heure_fin ||
-      !matiere
-    ) {
-      return res.status(400).json({
-        erreur: 'Tous les champs sont obligatoires.',
-      });
-    }
-
-    if (!JOURS.includes(jour)) {
-      return res.status(400).json({
-        erreur: 'Jour invalide.',
-      });
-    }
-
-    if (heure_debut >= heure_fin) {
-      return res.status(400).json({
-        erreur: "L'heure de fin doit être après l'heure de début.",
-      });
-    }
-
-    const resultat = await pool.query(
-      `
-      UPDATE horaires
-      SET
-        classe_id = $1,
-        jour = $2,
-        heure_debut = $3,
-        heure_fin = $4,
-        matiere = $5
-      WHERE id = $6
-      RETURNING *
-      `,
-      [
-        classe_id,
-        jour,
-        heure_debut,
-        heure_fin,
-        matiere.trim(),
-        id,
-      ]
-    );
-
-    if (resultat.rows.length === 0) {
-      return res.status(404).json({
-        erreur: 'Horaire introuvable.',
-      });
-    }
-
-    res.json(resultat.rows[0]);
-  } catch (error) {
-    console.error('Erreur modification horaire :', error);
-
-    res.status(500).json({
-      erreur: "Impossible de modifier l'horaire.",
-    });
-  }
-});
-
-/* =========================================================
-   SUPPRIMER UN HORAIRE
-========================================================= */
-
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const resultat = await pool.query(
-      `
-      DELETE FROM horaires
-      WHERE id = $1
-      RETURNING *
-      `,
-      [id]
-    );
-
-    if (resultat.rows.length === 0) {
-      return res.status(404).json({
-        erreur: 'Horaire introuvable.',
-      });
-    }
-
     res.json({
-      message: 'Horaire supprimé avec succès.',
-      horaire: resultat.rows[0],
+      message: 'Emploi du temps supprimé avec succès.',
     });
   } catch (error) {
-    console.error('Erreur suppression horaire :', error);
+    console.error('Erreur suppression horaires :', error);
 
     res.status(500).json({
-      erreur: "Impossible de supprimer l'horaire.",
+      erreur: "Impossible de supprimer l'emploi du temps.",
     });
   }
 });
