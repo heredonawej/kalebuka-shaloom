@@ -138,55 +138,40 @@ function Eleves() {
 
 
   // =====================================================
-// CHARGER L'HORAIRE LORSQU'ON OUVRE L'ONGLET
-// =====================================================
+  // CHARGER L'HORAIRE DE LA CLASSE
+  // =====================================================
 
-useEffect(() => {
-  if (onglet !== 'horaire') return
-  if (!classeSelectionnee) return
-
-  const chargerHoraire = async () => {
-    setChargementHoraire(true)
-
-    try {
-      const url =
-        `${API_URL}/api/horaires/classe/${classeSelectionnee}`
-
-      console.log('📅 Chargement horaire :', url)
-
-      const reponse = await fetch(url)
-
-      if (!reponse.ok) {
-        throw new Error(
-          `Erreur serveur : ${reponse.status}`
-        )
-      }
-
-      const donnees = await reponse.json()
-
-      console.log('📅 Horaires reçus :', donnees)
-
-      setHoraires(
-        Array.isArray(donnees)
-          ? donnees
-          : []
-      )
-
-    } catch (erreur) {
-      console.error(
-        '❌ Erreur chargement horaire :',
-        erreur
-      )
-
+  useEffect(() => {
+    if (!classeSelectionnee) {
       setHoraires([])
-    } finally {
-      setChargementHoraire(false)
+      return
     }
-  }
 
-  chargerHoraire()
+    const chargerHoraire = async () => {
+      setChargementHoraire(true)
 
-}, [onglet, classeSelectionnee])
+      try {
+        const reponse = await fetch(
+          `${API_URL}/api/horaires/classe/${classeSelectionnee}`
+        )
+
+        if (!reponse.ok) {
+          throw new Error("Impossible de récupérer l'horaire.")
+        }
+
+        const donnees = await reponse.json()
+        setHoraires(Array.isArray(donnees) ? donnees : [])
+      } catch (erreur) {
+        console.error('Erreur chargement horaire :', erreur)
+        setHoraires([])
+      } finally {
+        setChargementHoraire(false)
+      }
+    }
+
+    chargerHoraire()
+  }, [classeSelectionnee])
+
 
   // =====================================================
   // CHANGER PRÉSENCE
@@ -724,6 +709,90 @@ useEffect(() => {
 
         </div>
 
+      )}
+
+
+      {/* =================================================
+          HORAIRE DE LA CLASSE
+      ================================================= */}
+
+      {onglet === 'horaire' && classeSelectionnee && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+                <CalendarDays size={22} />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900">Horaire de {nomClasse}</h2>
+                <p className="mt-1 text-sm text-slate-500">Emploi du temps de votre classe.</p>
+              </div>
+            </div>
+          </div>
+
+          {chargementHoraire ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+              <p className="text-sm text-slate-500">Chargement de l'horaire...</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1050px] border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="sticky left-0 z-10 w-[140px] border-b border-r border-slate-200 bg-slate-100 px-4 py-4 text-left text-sm font-bold text-slate-700">Heure</th>
+                      {JOURS.map((jour) => (
+                        <th key={jour} className="border-b border-r border-slate-200 px-4 py-4 text-center text-sm font-bold text-slate-700">{jour}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {CRENEAUX.map((creneau, index) => {
+                      if (creneau.recreation) {
+                        return (
+                          <tr key={`recreation-${index}`}>
+                            <td colSpan={7} className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-2 font-bold text-amber-700">
+                                <Clock3 size={17} />
+                                RÉCRÉATION
+                                <span className="font-normal">({creneau.heure_debut} – {creneau.heure_fin})</span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      }
+
+                      return (
+                        <tr key={`${creneau.heure_debut}-${creneau.heure_fin}`}>
+                          <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-4 py-3">
+                            <div className="text-sm font-bold text-slate-700">
+                              {creneau.heure_debut}<span className="mx-1 text-slate-300">–</span>{creneau.heure_fin}
+                            </div>
+                          </td>
+                          {JOURS.map((jour) => {
+                            const horaire = horaires.find(
+                              (item) => item.jour === jour && String(item.heure_debut).slice(0, 5) === creneau.heure_debut
+                            )
+                            return (
+                              <td key={`${jour}-${creneau.heure_debut}`} className="border-b border-r border-slate-200 p-2">
+                                <div className={`min-h-[58px] rounded-xl px-3 py-3 text-center text-sm font-semibold ${horaire?.matiere ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-300'}`}>
+                                  {horaire?.matiere || '—'}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-center text-xs text-slate-500">
+                Horaire géré par l'administration.
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
     </div>
