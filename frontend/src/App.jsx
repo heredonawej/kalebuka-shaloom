@@ -33,6 +33,7 @@ import ElevesAdmin from './pages/ElevesAdmin'
 import PreparationsAdmin from './pages/PreparationsAdmin'
 import PreparationsAdminDetail from './pages/PreparationsAdminDetail'
 import RapportsAdmin from './pages/RapportsAdmin'
+import HorairesAdmin from './pages/HorairesAdmin';
 
 function App() {
 
@@ -212,6 +213,7 @@ function App() {
               path="classes"
               element={<ClassesAdmin />}
             />
+            <Route path="horaires" element={<HorairesAdmin />} />
 
             <Route
               path="eleves"

@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
-} from 'lucide-react'
+  CalendarDays,
+} from 'lucide-react';
 
 function LayoutAdmin({ utilisateur, onDeconnexion }) {
 
@@ -34,6 +35,11 @@ function LayoutAdmin({ utilisateur, onDeconnexion }) {
       chemin: '/admin/classes',
       icone: School,
     },
+    {
+  nom: 'Horaires',
+  chemin: '/admin/horaires',
+  icone: CalendarDays,
+},
     {
       nom: 'Matières',
       chemin: '/admin/matieres',
