@@ -10,6 +10,7 @@ import {
   LogOut,
   ShieldCheck,
   CalendarDays,
+  ClipboardCheck,
 } from 'lucide-react';
 
 function LayoutAdmin({ utilisateur, onDeconnexion }) {
@@ -45,6 +46,11 @@ function LayoutAdmin({ utilisateur, onDeconnexion }) {
       chemin: '/admin/matieres',
       icone: BookOpen,
     },
+    {
+  nom: 'Registre d’appel',
+  chemin: '/admin/registre-appel',
+  icone: ClipboardCheck,
+},
     {
       nom: 'Rapports',
       chemin: '/admin/rapports',

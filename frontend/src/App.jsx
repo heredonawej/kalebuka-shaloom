@@ -35,6 +35,7 @@ import PreparationsAdminDetail from './pages/PreparationsAdminDetail'
 import RapportsAdmin from './pages/RapportsAdmin'
 import HorairesAdmin from './pages/HorairesAdmin';
 import MatieresAdmin from './pages/MatieresAdmin'
+import RegistreAppelAdmin from './pages/RegistreAppelAdmin'
 
 function App() {
 
@@ -221,6 +222,10 @@ function App() {
               element={<ElevesAdmin />}
             />
             <Route path="matieres" element={<MatieresAdmin />} />
+            <Route
+  path="registre-appel"
+  element={<RegistreAppelAdmin />}
+/>
 
             <Route
               path="preparations"
