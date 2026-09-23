@@ -202,21 +202,24 @@ function RegistreAppelAdmin() {
   // FORMATER LA DATE
   // =====================================================
 
-  const formaterDate = (date) => {
-    if (!date) return ''
+ const formaterDate = (date) => {
+  if (!date) return '—'
 
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString(
-      'fr-FR',
-      {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      }
-    )
+  const dateTexte = String(date).slice(0, 10)
+
+  const dateFormatee = new Date(`${dateTexte}T00:00:00`)
+
+  if (Number.isNaN(dateFormatee.getTime())) {
+    return '—'
   }
+
+  return dateFormatee.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
   // =====================================================
   // AFFICHAGE
@@ -1122,12 +1125,10 @@ function RegistreAppelAdmin() {
                             text-slate-500
                           ">
                             {eleve.date_appel
-                              ? new Date(
-                                  `${eleve.date_appel}T00:00:00`
-                                ).toLocaleDateString(
-                                  'fr-FR'
-                                )
-                              : '—'}
+  ? new Date(
+      String(eleve.date_appel).slice(0, 10) + 'T00:00:00'
+    ).toLocaleDateString('fr-FR')
+  : '—'}
                           </td>
 
                         </tr>

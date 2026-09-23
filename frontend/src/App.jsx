@@ -36,6 +36,7 @@ import RapportsAdmin from './pages/RapportsAdmin'
 import HorairesAdmin from './pages/HorairesAdmin';
 import MatieresAdmin from './pages/MatieresAdmin'
 import RegistreAppelAdmin from './pages/RegistreAppelAdmin'
+import CommunicationsAdmin from './pages/CommunicationsAdmin'
 
 function App() {
 
@@ -225,6 +226,10 @@ function App() {
             <Route
   path="registre-appel"
   element={<RegistreAppelAdmin />}
+/>
+<Route
+  path="communications"
+  element={<CommunicationsAdmin />}
 />
 
             <Route

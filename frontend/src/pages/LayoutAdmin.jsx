@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   CalendarDays,
   ClipboardCheck,
+  Megaphone,
 } from 'lucide-react';
 
 function LayoutAdmin({ utilisateur, onDeconnexion }) {
@@ -50,6 +51,11 @@ function LayoutAdmin({ utilisateur, onDeconnexion }) {
   nom: 'Registre d’appel',
   chemin: '/admin/registre-appel',
   icone: ClipboardCheck,
+},
+{
+  nom: 'Communications',
+  chemin: '/admin/communications',
+  icone: Megaphone,
 },
     {
       nom: 'Rapports',
