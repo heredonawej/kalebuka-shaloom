@@ -12,6 +12,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Megaphone,
+  LockKeyhole,
 } from 'lucide-react';
 
 function LayoutAdmin({ utilisateur, onDeconnexion }) {
@@ -62,6 +63,11 @@ function LayoutAdmin({ utilisateur, onDeconnexion }) {
       chemin: '/admin/rapports',
       icone: BarChart3,
     },
+    {
+  nom: 'Coffre ADM',
+  chemin: '/admin/coffre-adm',
+  icone: LockKeyhole,
+},
     {
       nom: 'Paramètres',
       chemin: '/admin/parametres',

@@ -11,6 +11,7 @@ import routesNotes from './routes/notes.js';
 import routesHoraires from './routes/horaires.js';
 import routesMatieres from './routes/matieres.js';
 import routesCommunications from './routes/communications.js';
+import routesCoffreAdm from './routes/coffreAdm.js';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use('/api/notes', routesNotes);
 app.use('/api/horaires', routesHoraires);
 app.use('/api/matieres', routesMatieres);
 app.use('/api/communications', routesCommunications);
+app.use('/api/coffre-adm', routesCoffreAdm);
 
 app.get('/', (req, res) => {
   res.send('<h1>Serveur Kalebuka Shaloom Actif 🚀</h1><p>API prête et connectée à PostgreSQL.</p>');

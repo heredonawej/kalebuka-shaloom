@@ -37,6 +37,7 @@ import HorairesAdmin from './pages/HorairesAdmin';
 import MatieresAdmin from './pages/MatieresAdmin'
 import RegistreAppelAdmin from './pages/RegistreAppelAdmin'
 import CommunicationsAdmin from './pages/CommunicationsAdmin'
+import CoffreAdm from './pages/CoffreAdm'
 
 function App() {
 
@@ -211,6 +212,10 @@ function App() {
               path="enseignants"
               element={<EnseignantsAdmin />}
             />
+            <Route
+  path="coffre-adm"
+  element={<CoffreAdm />}
+/>
 
             <Route
               path="classes"
