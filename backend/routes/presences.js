@@ -319,6 +319,177 @@ router.get('/', async (req, res) => {
     })
   }
 })
+// =====================================================
+// HISTORIQUE DES APPELS - ADMIN
+// GET /api/presences/historique
+// =====================================================
+
+router.get('/historique', async (req, res) => {
+  try {
+    const {
+      section,
+      classe_id,
+      enseignant_id,
+      date_debut,
+      date_fin,
+    } = req.query
+
+    const conditions = []
+    const valeurs = []
+
+    let numero = 1
+
+    // -------------------------------------------------
+    // FILTRE SECTION
+    // -------------------------------------------------
+
+    if (section) {
+      conditions.push(`c.section = $${numero}`)
+      valeurs.push(section)
+      numero++
+    }
+
+    // -------------------------------------------------
+    // FILTRE CLASSE
+    // -------------------------------------------------
+
+    if (classe_id) {
+      conditions.push(`p.classe_id = $${numero}`)
+      valeurs.push(Number(classe_id))
+      numero++
+    }
+
+    // -------------------------------------------------
+    // FILTRE ENSEIGNANT
+    // -------------------------------------------------
+
+    if (enseignant_id) {
+      conditions.push(`p.enseignant_id = $${numero}`)
+      valeurs.push(Number(enseignant_id))
+      numero++
+    }
+
+    // -------------------------------------------------
+    // FILTRE DATE DEBUT
+    // -------------------------------------------------
+
+    if (date_debut) {
+      conditions.push(`p.date_appel >= $${numero}`)
+      valeurs.push(date_debut)
+      numero++
+    }
+
+    // -------------------------------------------------
+    // FILTRE DATE FIN
+    // -------------------------------------------------
+
+    if (date_fin) {
+      conditions.push(`p.date_appel <= $${numero}`)
+      valeurs.push(date_fin)
+      numero++
+    }
+
+    const where =
+      conditions.length > 0
+        ? `WHERE ${conditions.join(' AND ')}`
+        : ''
+
+    const resultat = await pool.query(
+      `
+      SELECT
+        p.date_appel,
+        p.classe_id,
+        c.nom AS classe_nom,
+        c.section AS classe_section,
+        p.enseignant_id,
+        CONCAT(
+          COALESCE(u.prenom, ''),
+          ' ',
+          COALESCE(u.nom, '')
+        ) AS enseignant_nom,
+
+        COUNT(*) AS total_eleves,
+
+        COUNT(
+          CASE
+            WHEN p.statut = 'present'
+            THEN 1
+          END
+        ) AS presents,
+
+        COUNT(
+          CASE
+            WHEN p.statut = 'absent'
+            THEN 1
+          END
+        ) AS absents
+
+      FROM presences p
+
+      INNER JOIN classes c
+        ON c.id = p.classe_id
+
+      LEFT JOIN utilisateurs u
+        ON u.id = p.enseignant_id
+
+      ${where}
+
+      GROUP BY
+        p.date_appel,
+        p.classe_id,
+        c.nom,
+        c.section,
+        p.enseignant_id,
+        u.prenom,
+        u.nom
+
+      ORDER BY
+        p.date_appel DESC,
+        c.section ASC,
+        c.nom ASC
+      `,
+      valeurs
+    )
+
+    const historique = resultat.rows.map((ligne) => {
+      const total = Number(ligne.total_eleves)
+      const presents = Number(ligne.presents)
+      const absents = Number(ligne.absents)
+
+      const taux =
+        total > 0
+          ? Math.round((presents / total) * 100)
+          : 0
+
+      return {
+        date_appel: ligne.date_appel,
+        classe_id: ligne.classe_id,
+        classe_nom: ligne.classe_nom,
+        classe_section: ligne.classe_section,
+        enseignant_id: ligne.enseignant_id,
+        enseignant_nom:
+          ligne.enseignant_nom?.trim() ||
+          'Enseignant non renseigné',
+        total_eleves: total,
+        presents,
+        absents,
+        taux_presence: taux,
+      }
+    })
+
+    res.json(historique)
+  } catch (error) {
+    console.error(
+      "Erreur historique des appels :",
+      error
+    )
+
+    res.status(500).json({
+      erreur:
+        "Impossible de récupérer l'historique des appels.",
+    })
+  }
+})
 
 
 // =====================================================
