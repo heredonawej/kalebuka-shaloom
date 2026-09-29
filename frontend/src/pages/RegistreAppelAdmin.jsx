@@ -12,7 +12,6 @@ import {
   History,
   ChevronRight,
   ArrowLeft,
-  BarChart3,
 } from 'lucide-react'
 
 const SECTIONS = [
@@ -106,6 +105,7 @@ function RegistreAppelAdmin() {
     setSectionActive(section)
     setClasseSelectionnee('')
     setPresences([])
+    setRecherche('')
   }
 
   // =====================================================
@@ -145,7 +145,10 @@ function RegistreAppelAdmin() {
   }
 
   useEffect(() => {
-    if (vueActive === 'jour') {
+    if (
+      vueActive === 'jour' &&
+      !historiqueSelectionne
+    ) {
       chargerAppel()
     }
   }, [
@@ -154,7 +157,7 @@ function RegistreAppelAdmin() {
     vueActive,
   ])
 
-  // =====================================================
+    // =====================================================
   // CHARGER HISTORIQUE
   // =====================================================
 
@@ -164,12 +167,12 @@ function RegistreAppelAdmin() {
 
       const params = new URLSearchParams()
 
-      if (sectionActive) {
-        params.append(
-          'section',
-          sectionActive
-        )
-      }
+      // IMPORTANT :
+      // On ne filtre plus automatiquement par section.
+      // L'historique affiche tous les appels enregistrés.
+      //
+      // La classe est filtrée uniquement si
+      // l'administrateur en sélectionne une.
 
       if (classeSelectionnee) {
         params.append(
@@ -178,6 +181,7 @@ function RegistreAppelAdmin() {
         )
       }
 
+      // Filtre date début
       if (dateDebut) {
         params.append(
           'date_debut',
@@ -185,6 +189,7 @@ function RegistreAppelAdmin() {
         )
       }
 
+      // Filtre date fin
       if (dateFin) {
         params.append(
           'date_fin',
@@ -192,13 +197,30 @@ function RegistreAppelAdmin() {
         )
       }
 
+      const queryString =
+        params.toString()
+
       const url =
         `${API_URL}/api/presences/historique` +
-        `?${params.toString()}`
+        (queryString
+          ? `?${queryString}`
+          : '')
 
-      const response = await fetch(url)
+      console.log(
+        'URL HISTORIQUE :',
+        url
+      )
 
-      const data = await response.json()
+      const response =
+        await fetch(url)
+
+      const data =
+        await response.json()
+
+      console.log(
+        'HISTORIQUE REÇU :',
+        data
+      )
 
       if (!response.ok) {
         throw new Error(
@@ -207,18 +229,36 @@ function RegistreAppelAdmin() {
         )
       }
 
-      setHistorique(data)
+      setHistorique(
+        Array.isArray(data)
+          ? data
+          : []
+      )
+
     } catch (error) {
-      console.error(error)
-      alert(error.message)
+
+      console.error(
+        'ERREUR HISTORIQUE :',
+        error
+      )
+
+      alert(
+        error.message ||
+          "Impossible de récupérer l'historique."
+      )
+
       setHistorique([])
+
     } finally {
       setChargement(false)
     }
   }
 
   useEffect(() => {
-    if (vueActive === 'historique') {
+    if (
+      vueActive === 'historique' &&
+      !historiqueSelectionne
+    ) {
       chargerHistorique()
     }
   }, [
@@ -292,6 +332,22 @@ function RegistreAppelAdmin() {
       0
     )
 
+  const totalElevesHistorique =
+    historique.reduce(
+      (total, ligne) =>
+        total + Number(ligne.total_eleves || 0),
+      0
+    )
+
+  const tauxPresenceHistorique =
+    totalElevesHistorique > 0
+      ? Math.round(
+          (totalPresentsHistorique /
+            totalElevesHistorique) *
+            100
+        )
+      : 0
+
   // =====================================================
   // FORMAT DATE
   // =====================================================
@@ -347,6 +403,28 @@ function RegistreAppelAdmin() {
   }
 
   // =====================================================
+  // NOM ENSEIGNANT
+  // =====================================================
+
+  const afficherEnseignant = (ligne) => {
+    if (ligne?.enseignant_nom) {
+      return ligne.enseignant_nom
+    }
+
+    if (ligne?.enseignant_prenom) {
+      return `${ligne.enseignant_prenom} ${
+        ligne.enseignant_nom || ''
+      }`.trim()
+    }
+
+    if (ligne?.enseignant_id) {
+      return `Enseignant #${ligne.enseignant_id}`
+    }
+
+    return 'Enseignant non renseigné'
+  }
+
+  // =====================================================
   // OUVRIR LE DÉTAIL D'UN APPEL
   // =====================================================
 
@@ -354,10 +432,12 @@ function RegistreAppelAdmin() {
     try {
       setChargement(true)
 
+      const date = String(
+        ligne.date_appel
+      ).slice(0, 10)
+
       const response = await fetch(
-        `${API_URL}/api/presences/classe/${ligne.classe_id}?date=${String(
-          ligne.date_appel
-        ).slice(0, 10)}`
+        `${API_URL}/api/presences/classe/${ligne.classe_id}?date=${date}`
       )
 
       const data = await response.json()
@@ -369,7 +449,11 @@ function RegistreAppelAdmin() {
         )
       }
 
-      setPresences(data)
+      setPresences(
+        Array.isArray(data) ? data : []
+      )
+
+      setRecherche('')
       setHistoriqueSelectionne(ligne)
     } catch (error) {
       console.error(error)
@@ -386,6 +470,7 @@ function RegistreAppelAdmin() {
   const retourHistorique = () => {
     setHistoriqueSelectionne(null)
     setPresences([])
+    setRecherche('')
   }
 
   // =====================================================
@@ -446,6 +531,7 @@ function RegistreAppelAdmin() {
               justify-center
               rounded-2xl
               bg-white/15
+              backdrop-blur
             ">
               <ClipboardCheck size={28} />
             </div>
@@ -476,8 +562,8 @@ function RegistreAppelAdmin() {
                 text-sm
                 text-indigo-100
               ">
-                Suivi quotidien et historique des
-                présences
+                Suivi quotidien et historique
+                des présences
               </p>
 
             </div>
@@ -488,10 +574,12 @@ function RegistreAppelAdmin() {
 
           <div className="
             flex
+            w-full
             rounded-2xl
             bg-white/10
             p-1
             backdrop-blur
+            sm:w-auto
           ">
 
             <button
@@ -501,7 +589,9 @@ function RegistreAppelAdmin() {
               }}
               className={`
                 flex
+                flex-1
                 items-center
+                justify-center
                 gap-2
                 rounded-xl
                 px-4
@@ -509,6 +599,7 @@ function RegistreAppelAdmin() {
                 text-sm
                 font-bold
                 transition
+                sm:flex-none
                 ${
                   vueActive === 'jour'
                     ? 'bg-white text-indigo-700 shadow'
@@ -524,10 +615,13 @@ function RegistreAppelAdmin() {
               onClick={() => {
                 setVueActive('historique')
                 setHistoriqueSelectionne(null)
+                setPresences([])
               }}
               className={`
                 flex
+                flex-1
                 items-center
+                justify-center
                 gap-2
                 rounded-xl
                 px-4
@@ -535,6 +629,7 @@ function RegistreAppelAdmin() {
                 text-sm
                 font-bold
                 transition
+                sm:flex-none
                 ${
                   vueActive === 'historique'
                     ? 'bg-white text-indigo-700 shadow'
@@ -704,7 +799,7 @@ function RegistreAppelAdmin() {
             <div className="
               flex
               flex-col
-              gap-3
+              gap-4
               sm:flex-row
               sm:items-center
               sm:justify-between
@@ -734,6 +829,7 @@ function RegistreAppelAdmin() {
                 <p className="
                   mt-1
                   text-sm
+                  capitalize
                   text-slate-500
                 ">
                   {formaterDate(
@@ -763,9 +859,9 @@ function RegistreAppelAdmin() {
                   font-bold
                   text-indigo-900
                 ">
-                  {
-                    historiqueSelectionne.enseignant_nom
-                  }
+                  {afficherEnseignant(
+                    historiqueSelectionne
+                  )}
                 </p>
 
               </div>
@@ -788,6 +884,7 @@ function RegistreAppelAdmin() {
               border-slate-200
               bg-white
               p-5
+              shadow-sm
             ">
               <p className="
                 text-xs
@@ -993,7 +1090,10 @@ function RegistreAppelAdmin() {
 
                       return (
                         <tr
-                          key={eleve.id || eleve.eleve_id}
+                          key={
+                            eleve.id ||
+                            eleve.eleve_id
+                          }
                           className="
                             hover:bg-slate-50
                           "
@@ -1036,9 +1136,13 @@ function RegistreAppelAdmin() {
                             `}>
 
                               {present ? (
-                                <UserCheck size={14} />
+                                <UserCheck
+                                  size={14}
+                                />
                               ) : (
-                                <UserX size={14} />
+                                <UserX
+                                  size={14}
+                                />
                               )}
 
                               {present
@@ -1249,13 +1353,13 @@ function RegistreAppelAdmin() {
               items-center
               gap-2
               font-semibold
+              capitalize
             ">
               <CalendarDays size={18} />
 
               {formaterDate(
                 dateSelectionnee
               )}
-
             </div>
 
           </div>
@@ -2003,9 +2107,7 @@ function RegistreAppelAdmin() {
                 </button>
 
                 <button
-                  onClick={
-                    reinitialiserFiltres
-                  }
+                  onClick={reinitialiserFiltres}
                   title="Réinitialiser"
                   className="
                     flex
@@ -2035,7 +2137,8 @@ function RegistreAppelAdmin() {
           <div className="
             grid
             gap-4
-            sm:grid-cols-3
+            sm:grid-cols-2
+            lg:grid-cols-4
           ">
 
             <div className="
@@ -2046,38 +2149,51 @@ function RegistreAppelAdmin() {
               p-5
             ">
 
-              <div className="
-                flex
-                items-center
-                justify-between
+              <p className="
+                text-xs
+                font-bold
+                uppercase
+                text-indigo-600
               ">
+                Appels enregistrés
+              </p>
 
-                <div>
-                  <p className="
-                    text-xs
-                    font-bold
-                    uppercase
-                    text-indigo-600
-                  ">
-                    Appels enregistrés
-                  </p>
+              <p className="
+                mt-2
+                text-3xl
+                font-black
+                text-indigo-700
+              ">
+                {totalAppels}
+              </p>
 
-                  <p className="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-indigo-700
-                  ">
-                    {totalAppels}
-                  </p>
-                </div>
+            </div>
 
-                <History
-                  size={28}
-                  className="text-indigo-400"
-                />
+            <div className="
+              rounded-2xl
+              border
+              border-slate-200
+              bg-white
+              p-5
+            ">
 
-              </div>
+              <p className="
+                text-xs
+                font-bold
+                uppercase
+                text-slate-500
+              ">
+                Élèves concernés
+              </p>
+
+              <p className="
+                mt-2
+                text-3xl
+                font-black
+                text-slate-800
+              ">
+                {totalElevesHistorique}
+              </p>
 
             </div>
 
@@ -2089,38 +2205,23 @@ function RegistreAppelAdmin() {
               p-5
             ">
 
-              <div className="
-                flex
-                items-center
-                justify-between
+              <p className="
+                text-xs
+                font-bold
+                uppercase
+                text-emerald-600
               ">
+                Présences
+              </p>
 
-                <div>
-                  <p className="
-                    text-xs
-                    font-bold
-                    uppercase
-                    text-emerald-600
-                  ">
-                    Présences
-                  </p>
-
-                  <p className="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-emerald-700
-                  ">
-                    {totalPresentsHistorique}
-                  </p>
-                </div>
-
-                <UserCheck
-                  size={28}
-                  className="text-emerald-400"
-                />
-
-              </div>
+              <p className="
+                mt-2
+                text-3xl
+                font-black
+                text-emerald-700
+              ">
+                {totalPresentsHistorique}
+              </p>
 
             </div>
 
@@ -2132,10 +2233,46 @@ function RegistreAppelAdmin() {
               p-5
             ">
 
+              <p className="
+                text-xs
+                font-bold
+                uppercase
+                text-red-600
+              ">
+                Absences
+              </p>
+
+              <p className="
+                mt-2
+                text-3xl
+                font-black
+                text-red-700
+              ">
+                {totalAbsentsHistorique}
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* TAUX GLOBAL */}
+
+          {historique.length > 0 && (
+            <div className="
+              rounded-2xl
+              border
+              border-indigo-100
+              bg-indigo-50
+              p-5
+            ">
+
               <div className="
                 flex
-                items-center
-                justify-between
+                flex-col
+                gap-3
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
               ">
 
                 <div>
@@ -2143,31 +2280,52 @@ function RegistreAppelAdmin() {
                     text-xs
                     font-bold
                     uppercase
-                    text-red-600
+                    text-indigo-600
                   ">
-                    Absences
+                    Taux global de présence
                   </p>
 
                   <p className="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-red-700
+                    mt-1
+                    text-sm
+                    text-indigo-800
                   ">
-                    {totalAbsentsHistorique}
+                    Sur la période sélectionnée
                   </p>
                 </div>
 
-                <UserX
-                  size={28}
-                  className="text-red-400"
-                />
+                <p className="
+                  text-3xl
+                  font-black
+                  text-indigo-700
+                ">
+                  {tauxPresenceHistorique}%
+                </p>
 
               </div>
 
-            </div>
+              <div className="
+                mt-4
+                h-3
+                overflow-hidden
+                rounded-full
+                bg-indigo-100
+              ">
+                <div
+                  className="
+                    h-full
+                    rounded-full
+                    bg-indigo-600
+                    transition-all
+                  "
+                  style={{
+                    width: `${tauxPresenceHistorique}%`,
+                  }}
+                />
+              </div>
 
-          </div>
+            </div>
+          )}
 
           {/* CHARGEMENT HISTORIQUE */}
 
@@ -2186,12 +2344,14 @@ function RegistreAppelAdmin() {
               text-sm
               text-slate-500
             ">
+
               <Loader2
                 size={22}
                 className="animate-spin"
               />
 
               Chargement de l'historique...
+
             </div>
 
           ) : historique.length === 0 ? (
@@ -2302,6 +2462,7 @@ function RegistreAppelAdmin() {
                           <p className="
                             mt-1
                             text-xs
+                            capitalize
                             text-slate-500
                           ">
                             {formaterDate(
@@ -2404,16 +2565,19 @@ function RegistreAppelAdmin() {
                         flex
                         items-center
                         justify-between
+                        gap-3
                       ">
 
                         <p className="
+                          truncate
                           text-xs
                           text-slate-500
                         ">
-                          {ligne.enseignant_nom}
+                          {afficherEnseignant(ligne)}
                         </p>
 
                         <span className="
+                          shrink-0
                           rounded-full
                           bg-indigo-50
                           px-3
@@ -2428,6 +2592,7 @@ function RegistreAppelAdmin() {
                       </div>
 
                     </button>
+
                   )
                 )}
 
@@ -2535,10 +2700,7 @@ function RegistreAppelAdmin() {
                         Taux
                       </th>
 
-                      <th className="
-                        px-6
-                        py-4
-                      " />
+                      <th className="px-6 py-4" />
 
                     </tr>
 
@@ -2604,7 +2766,7 @@ function RegistreAppelAdmin() {
                             text-sm
                             text-slate-600
                           ">
-                            {ligne.enseignant_nom}
+                            {afficherEnseignant(ligne)}
                           </td>
 
                           <td className="
@@ -2669,6 +2831,7 @@ function RegistreAppelAdmin() {
                           </td>
 
                         </tr>
+
                       )
                     )}
 
@@ -2683,6 +2846,7 @@ function RegistreAppelAdmin() {
           )}
 
         </div>
+
       )}
 
     </div>
