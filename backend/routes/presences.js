@@ -17,35 +17,20 @@ router.post('/', async (req, res) => {
       presences,
     } = req.body
 
-    // -----------------------------------------------
-    // Vérifications
-    // -----------------------------------------------
-
-    if (!enseignant_id) {
+    if (
+      !enseignant_id ||
+      !classe_id ||
+      !Array.isArray(presences)
+    ) {
       return res.status(400).json({
-        erreur: 'Enseignant non identifié.',
+        erreur:
+          'Données de présence invalides.',
       })
     }
-
-    if (!classe_id) {
-      return res.status(400).json({
-        erreur: 'Classe non identifiée.',
-      })
-    }
-
-    if (!Array.isArray(presences)) {
-      return res.status(400).json({
-        erreur: 'Les données de présence sont invalides.',
-      })
-    }
-
-    // -----------------------------------------------
-    // Vérifier l'enseignant
-    // -----------------------------------------------
 
     const enseignant = await client.query(
       `
-      SELECT id, nom, classe_id
+      SELECT id, classe_id
       FROM utilisateurs
       WHERE id = $1
         AND role = 'enseignant'
@@ -59,269 +44,129 @@ router.post('/', async (req, res) => {
       })
     }
 
-    const classeEnseignant =
-      enseignant.rows[0].classe_id
-
-    if (!classeEnseignant) {
-      return res.status(400).json({
-        erreur:
-          'Aucune classe n’est affectée à cet enseignant.',
-      })
-    }
-
-    // L'enseignant ne peut faire l'appel que de sa classe
-    if (Number(classeEnseignant) !== Number(classe_id)) {
+    if (
+      Number(enseignant.rows[0].classe_id) !==
+      Number(classe_id)
+    ) {
       return res.status(403).json({
         erreur:
-          'Vous ne pouvez pas enregistrer l’appel d’une autre classe.',
+          "Cet enseignant n'est pas affecté à cette classe.",
       })
     }
-
-    // -----------------------------------------------
-    // Vérifier la classe
-    // -----------------------------------------------
-
-    const classe = await client.query(
-      `
-      SELECT id, nom, section
-      FROM classes
-      WHERE id = $1
-      `,
-      [classe_id]
-    )
-
-    if (classe.rows.length === 0) {
-      return res.status(404).json({
-        erreur: 'Classe introuvable.',
-      })
-    }
-
-    // -----------------------------------------------
-    // Transaction
-    // -----------------------------------------------
 
     await client.query('BEGIN')
 
     for (const presence of presences) {
-      const {
-        eleve_id,
-        statut,
-      } = presence
-
-      if (!eleve_id) {
+      if (!presence.eleve_id || !presence.statut) {
         continue
       }
 
-      if (!['present', 'absent'].includes(statut)) {
-        continue
-      }
-
-      // Vérifier que l'élève appartient bien à la classe
-      const eleve = await client.query(
+      await client.query(
         `
-        SELECT id
-        FROM eleves
-        WHERE id = $1
-          AND classe_id = $2
-        `,
-        [eleve_id, classe_id]
-      )
-
-      if (eleve.rows.length === 0) {
-        continue
-      }
-
-      // ---------------------------------------------
-      // Vérifier si l'appel existe déjà aujourd'hui
-      // ---------------------------------------------
-
-      const existante = await client.query(
-        `
-        SELECT id
-        FROM presences
-        WHERE eleve_id = $1
-          AND classe_id = $2
-          AND date_appel = CURRENT_DATE
-        LIMIT 1
-        `,
-        [eleve_id, classe_id]
-      )
-
-      if (existante.rows.length > 0) {
-
-        // Mise à jour
-        await client.query(
-          `
-          UPDATE presences
-          SET
-            statut = $1,
-            enseignant_id = $2
-          WHERE id = $3
-          `,
-          [
-            statut,
-            enseignant_id,
-            existante.rows[0].id,
-          ]
+        INSERT INTO presences (
+          eleve_id,
+          enseignant_id,
+          classe_id,
+          statut,
+          date_appel
         )
-
-      } else {
-
-        // Nouvelle présence
-        await client.query(
-          `
-          INSERT INTO presences (
-            eleve_id,
-            classe_id,
-            enseignant_id,
-            statut,
-            date_appel
-          )
-          VALUES (
-            $1,
-            $2,
-            $3,
-            $4,
-            CURRENT_DATE
-          )
-          `,
-          [
-            eleve_id,
-            classe_id,
-            enseignant_id,
-            statut,
-          ]
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          CURRENT_DATE
         )
-      }
+        ON CONFLICT (
+          eleve_id,
+          date_appel
+        )
+        DO UPDATE SET
+          enseignant_id = EXCLUDED.enseignant_id,
+          classe_id = EXCLUDED.classe_id,
+          statut = EXCLUDED.statut
+        `,
+        [
+          presence.eleve_id,
+          enseignant_id,
+          classe_id,
+          presence.statut,
+        ]
+      )
     }
 
     await client.query('COMMIT')
 
     res.json({
       message:
-        'Présences enregistrées avec succès.',
-      date:
-        new Date().toISOString().split('T')[0],
-      classe:
-        classe.rows[0],
+        "L'appel a été enregistré avec succès.",
     })
-
   } catch (error) {
-
     await client.query('ROLLBACK')
 
     console.error(
-      'Erreur enregistrement présences :',
+      'ERREUR ENREGISTREMENT PRESENCES :',
       error
     )
 
     res.status(500).json({
       erreur:
-        'Impossible d’enregistrer les présences.',
+        "Impossible d'enregistrer l'appel.",
     })
-
   } finally {
     client.release()
   }
 })
 
-
 // =====================================================
-// RÉCUPÉRER LES PRÉSENCES
+// APPEL D'UNE CLASSE POUR UNE DATE
 // =====================================================
 
-router.get('/', async (req, res) => {
+router.get('/classe/:classeId', async (req, res) => {
   try {
+    const { classeId } = req.params
 
-    const {
-      classe_id,
-      date,
-    } = req.query
+    const date =
+      req.query.date ||
+      new Date().toISOString().slice(0, 10)
 
-    let requete = `
+    const resultat = await pool.query(
+      `
       SELECT
         p.id,
         p.eleve_id,
-        p.classe_id,
         p.enseignant_id,
+        p.classe_id,
         p.statut,
         p.date_appel,
-
-        e.nom AS eleve_nom,
-        e.prenom AS eleve_prenom,
-
-        c.nom AS classe_nom,
-        c.section AS classe_section,
-
-        u.nom AS enseignant_nom
-
-      FROM presences p
-
-      INNER JOIN eleves e
-        ON e.id = p.eleve_id
-
-      INNER JOIN classes c
-        ON c.id = p.classe_id
-
-      LEFT JOIN utilisateurs u
-        ON u.id = p.enseignant_id
-
-      WHERE 1 = 1
-    `
-
-    const valeurs = []
-    let numero = 1
-
-    // Filtre classe
-    if (classe_id) {
-      requete += ` AND p.classe_id = $${numero}`
-      valeurs.push(classe_id)
-      numero++
-    }
-
-    // Filtre date
-    if (date) {
-      requete += ` AND p.date_appel = $${numero}`
-      valeurs.push(date)
-      numero++
-    }
-
-    // Par défaut : aujourd'hui
-    if (!date) {
-      requete += ` AND p.date_appel = CURRENT_DATE`
-    }
-
-    requete += `
-      ORDER BY
-        c.section,
-        c.nom,
         e.nom,
         e.prenom
-    `
-
-    const resultat = await pool.query(
-      requete,
-      valeurs
+      FROM presences p
+      INNER JOIN eleves e
+        ON e.id = p.eleve_id
+      WHERE p.classe_id = $1
+        AND p.date_appel = $2
+      ORDER BY e.nom ASC, e.prenom ASC
+      `,
+      [Number(classeId), date]
     )
 
     res.json(resultat.rows)
-
   } catch (error) {
-
     console.error(
-      'Erreur récupération présences :',
+      'ERREUR APPEL CLASSE :',
       error
     )
 
     res.status(500).json({
       erreur:
-        'Impossible de récupérer les présences.',
+        "Impossible de récupérer l'appel.",
     })
   }
 })
+
 // =====================================================
-// HISTORIQUE DES APPELS - ADMIN
-// GET /api/presences/historique
+// HISTORIQUE DES APPELS
 // =====================================================
 
 router.get('/historique', async (req, res) => {
@@ -329,62 +174,62 @@ router.get('/historique', async (req, res) => {
     const {
       section,
       classe_id,
-      enseignant_id,
       date_debut,
       date_fin,
     } = req.query
 
     const conditions = []
     const valeurs = []
-
     let numero = 1
 
-    // -------------------------------------------------
+    // -----------------------------
     // FILTRE SECTION
-    // -------------------------------------------------
+    // -----------------------------
 
     if (section) {
-      conditions.push(`c.section = $${numero}`)
+      conditions.push(
+        `c.section = $${numero}`
+      )
+
       valeurs.push(section)
       numero++
     }
 
-    // -------------------------------------------------
+    // -----------------------------
     // FILTRE CLASSE
-    // -------------------------------------------------
+    // -----------------------------
 
     if (classe_id) {
-      conditions.push(`p.classe_id = $${numero}`)
+      conditions.push(
+        `p.classe_id = $${numero}`
+      )
+
       valeurs.push(Number(classe_id))
       numero++
     }
 
-    // -------------------------------------------------
-    // FILTRE ENSEIGNANT
-    // -------------------------------------------------
-
-    if (enseignant_id) {
-      conditions.push(`p.enseignant_id = $${numero}`)
-      valeurs.push(Number(enseignant_id))
-      numero++
-    }
-
-    // -------------------------------------------------
-    // FILTRE DATE DEBUT
-    // -------------------------------------------------
+    // -----------------------------
+    // DATE DEBUT
+    // -----------------------------
 
     if (date_debut) {
-      conditions.push(`p.date_appel >= $${numero}`)
+      conditions.push(
+        `p.date_appel >= $${numero}`
+      )
+
       valeurs.push(date_debut)
       numero++
     }
 
-    // -------------------------------------------------
-    // FILTRE DATE FIN
-    // -------------------------------------------------
+    // -----------------------------
+    // DATE FIN
+    // -----------------------------
 
     if (date_fin) {
-      conditions.push(`p.date_appel <= $${numero}`)
+      conditions.push(
+        `p.date_appel <= $${numero}`
+      )
+
       valeurs.push(date_fin)
       numero++
     }
@@ -394,6 +239,13 @@ router.get('/historique', async (req, res) => {
         ? `WHERE ${conditions.join(' AND ')}`
         : ''
 
+    /*
+      IMPORTANT :
+      On ne dépend PAS de utilisateurs ici.
+      L'historique fonctionnera même si certaines
+      informations enseignant sont absentes.
+    */
+
     const resultat = await pool.query(
       `
       SELECT
@@ -402,11 +254,6 @@ router.get('/historique', async (req, res) => {
         c.nom AS classe_nom,
         c.section AS classe_section,
         p.enseignant_id,
-        CONCAT(
-          COALESCE(u.prenom, ''),
-          ' ',
-          COALESCE(u.nom, '')
-        ) AS enseignant_nom,
 
         COUNT(*) AS total_eleves,
 
@@ -429,9 +276,6 @@ router.get('/historique', async (req, res) => {
       INNER JOIN classes c
         ON c.id = p.classe_id
 
-      LEFT JOIN utilisateurs u
-        ON u.id = p.enseignant_id
-
       ${where}
 
       GROUP BY
@@ -439,9 +283,7 @@ router.get('/historique', async (req, res) => {
         p.classe_id,
         c.nom,
         c.section,
-        p.enseignant_id,
-        u.prenom,
-        u.nom
+        p.enseignant_id
 
       ORDER BY
         p.date_appel DESC,
@@ -451,120 +293,111 @@ router.get('/historique', async (req, res) => {
       valeurs
     )
 
-    const historique = resultat.rows.map((ligne) => {
-      const total = Number(ligne.total_eleves)
-      const presents = Number(ligne.presents)
-      const absents = Number(ligne.absents)
+    const historique =
+      resultat.rows.map((ligne) => {
+        const total =
+          Number(ligne.total_eleves)
 
-      const taux =
-        total > 0
-          ? Math.round((presents / total) * 100)
-          : 0
+        const presents =
+          Number(ligne.presents)
 
-      return {
-        date_appel: ligne.date_appel,
-        classe_id: ligne.classe_id,
-        classe_nom: ligne.classe_nom,
-        classe_section: ligne.classe_section,
-        enseignant_id: ligne.enseignant_id,
-        enseignant_nom:
-          ligne.enseignant_nom?.trim() ||
-          'Enseignant non renseigné',
-        total_eleves: total,
-        presents,
-        absents,
-        taux_presence: taux,
-      }
-    })
+        const absents =
+          Number(ligne.absents)
 
-    res.json(historique)
+        const taux =
+          total > 0
+            ? Math.round(
+                (presents / total) * 100
+              )
+            : 0
+
+        return {
+          date_appel:
+            ligne.date_appel,
+
+          classe_id:
+            ligne.classe_id,
+
+          classe_nom:
+            ligne.classe_nom,
+
+          classe_section:
+            ligne.classe_section,
+
+          enseignant_id:
+            ligne.enseignant_id,
+
+          total_eleves:
+            total,
+
+          presents,
+
+          absents,
+
+          taux_presence:
+            taux,
+        }
+      })
+
+    console.log(
+      'HISTORIQUE APPELS :',
+      historique
+    )
+
+    res.status(200).json(historique)
+
   } catch (error) {
+
     console.error(
-      "Erreur historique des appels :",
+      'ERREUR SQL HISTORIQUE APPELS :',
       error
     )
 
     res.status(500).json({
       erreur:
         "Impossible de récupérer l'historique des appels.",
+      detail:
+        process.env.NODE_ENV !== 'production'
+          ? error.message
+          : undefined,
     })
   }
 })
 
-
 // =====================================================
-// RÉCUPÉRER L'APPEL D'UNE CLASSE
+// HISTORIQUE GLOBAL SIMPLE
 // =====================================================
 
-router.get('/classe/:classeId', async (req, res) => {
-
+router.get('/', async (req, res) => {
   try {
-
-    const { classeId } = req.params
-    const { date } = req.query
-
     const resultat = await pool.query(
       `
       SELECT
         p.id,
         p.eleve_id,
-        p.classe_id,
         p.enseignant_id,
+        p.classe_id,
         p.statut,
-        p.date_appel,
-
-        e.nom AS eleve_nom,
-        e.prenom AS eleve_prenom,
-
-        c.nom AS classe_nom,
-        c.section AS classe_section,
-
-        u.nom AS enseignant_nom
-
+        p.date_appel
       FROM presences p
-
-      INNER JOIN eleves e
-        ON e.id = p.eleve_id
-
-      INNER JOIN classes c
-        ON c.id = p.classe_id
-
-      LEFT JOIN utilisateurs u
-        ON u.id = p.enseignant_id
-
-      WHERE p.classe_id = $1
-
-      AND p.date_appel =
-        COALESCE(
-          $2::date,
-          CURRENT_DATE
-        )
-
       ORDER BY
-        e.nom,
-        e.prenom
-      `,
-      [
-        classeId,
-        date || null,
-      ]
+        p.date_appel DESC,
+        p.id DESC
+      `
     )
 
     res.json(resultat.rows)
-
   } catch (error) {
-
     console.error(
-      'Erreur récupération appel classe :',
+      'ERREUR GET PRESENCES :',
       error
     )
 
     res.status(500).json({
       erreur:
-        'Impossible de récupérer l’appel de cette classe.',
+        'Impossible de récupérer les présences.',
     })
   }
 })
-
 
 export default router
