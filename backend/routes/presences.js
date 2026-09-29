@@ -8,7 +8,8 @@ const router = express.Router()
 // =====================================================
 
 router.post('/', async (req, res) => {
-  const client = await pool.connect()
+  let client = null
+  let transactionCommencee = false
 
   try {
     const {
@@ -16,6 +17,10 @@ router.post('/', async (req, res) => {
       classe_id,
       presences,
     } = req.body
+
+    // -------------------------------------------------
+    // VALIDATION DES DONNÉES
+    // -------------------------------------------------
 
     if (
       !enseignant_id ||
@@ -28,25 +33,51 @@ router.post('/', async (req, res) => {
       })
     }
 
-    const enseignant = await client.query(
-      `
-      SELECT id, classe_id
-      FROM utilisateurs
-      WHERE id = $1
-        AND role = 'enseignant'
-      `,
-      [enseignant_id]
-    )
-
-    if (enseignant.rows.length === 0) {
-      return res.status(404).json({
-        erreur: 'Enseignant introuvable.',
+    if (presences.length === 0) {
+      return res.status(400).json({
+        erreur:
+          'Aucun élève à enregistrer.',
       })
     }
 
+    // -------------------------------------------------
+    // CONNEXION
+    // -------------------------------------------------
+
+    client = await pool.connect()
+
+    // -------------------------------------------------
+    // VÉRIFIER L'ENSEIGNANT
+    // -------------------------------------------------
+
+    const enseignant =
+      await client.query(
+        `
+        SELECT
+          id,
+          classe_id
+        FROM utilisateurs
+        WHERE id = $1
+          AND role = 'enseignant'
+        `,
+        [Number(enseignant_id)]
+      )
+
+    if (enseignant.rows.length === 0) {
+      return res.status(404).json({
+        erreur:
+          'Enseignant introuvable.',
+      })
+    }
+
+    // -------------------------------------------------
+    // VÉRIFIER LA CLASSE DE L'ENSEIGNANT
+    // -------------------------------------------------
+
     if (
-      Number(enseignant.rows[0].classe_id) !==
-      Number(classe_id)
+      Number(
+        enseignant.rows[0].classe_id
+      ) !== Number(classe_id)
     ) {
       return res.status(403).json({
         erreur:
@@ -54,67 +85,243 @@ router.post('/', async (req, res) => {
       })
     }
 
+    // -------------------------------------------------
+    // VÉRIFIER QUE LA CLASSE EXISTE
+    // -------------------------------------------------
+
+    const classe =
+      await client.query(
+        `
+        SELECT
+          id,
+          nom,
+          section
+        FROM classes
+        WHERE id = $1
+        `,
+        [Number(classe_id)]
+      )
+
+    if (classe.rows.length === 0) {
+      return res.status(404).json({
+        erreur:
+          'Classe introuvable.',
+      })
+    }
+
+    // -------------------------------------------------
+    // COMMENCER LA TRANSACTION
+    // -------------------------------------------------
+
     await client.query('BEGIN')
+    transactionCommencee = true
+
+    let nombreEnregistres = 0
+
+    // -------------------------------------------------
+    // ENREGISTRER CHAQUE ÉLÈVE
+    // -------------------------------------------------
 
     for (const presence of presences) {
-      if (!presence.eleve_id || !presence.statut) {
+      if (
+        !presence.eleve_id ||
+        !presence.statut
+      ) {
         continue
       }
 
-      await client.query(
-        `
-        INSERT INTO presences (
-          eleve_id,
-          enseignant_id,
-          classe_id,
-          statut,
-          date_appel
+      const eleveId =
+        Number(presence.eleve_id)
+
+      const statut =
+        String(presence.statut).toLowerCase()
+
+      // ------------------------------------------------
+      // VÉRIFIER LE STATUT
+      // ------------------------------------------------
+
+      if (
+        statut !== 'present' &&
+        statut !== 'absent'
+      ) {
+        continue
+      }
+
+      // ------------------------------------------------
+      // VÉRIFIER QUE L'ÉLÈVE APPARTIENT À LA CLASSE
+      // ------------------------------------------------
+
+      const eleve =
+        await client.query(
+          `
+          SELECT
+            id,
+            classe_id
+          FROM eleves
+          WHERE id = $1
+          `,
+          [eleveId]
         )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          CURRENT_DATE
+
+      if (eleve.rows.length === 0) {
+        continue
+      }
+
+      if (
+        Number(
+          eleve.rows[0].classe_id
+        ) !== Number(classe_id)
+      ) {
+        continue
+      }
+
+      // ------------------------------------------------
+      // VÉRIFIER SI L'ÉLÈVE A DÉJÀ UN APPEL AUJOURD'HUI
+      // ------------------------------------------------
+
+      const existant =
+        await client.query(
+          `
+          SELECT id
+          FROM presences
+          WHERE eleve_id = $1
+            AND date_appel = CURRENT_DATE
+          LIMIT 1
+          `,
+          [eleveId]
         )
-        ON CONFLICT (
-          eleve_id,
-          date_appel
+
+      // ------------------------------------------------
+      // SI EXISTE → MODIFIER
+      // ------------------------------------------------
+
+      if (existant.rows.length > 0) {
+        await client.query(
+          `
+          UPDATE presences
+          SET
+            enseignant_id = $1,
+            classe_id = $2,
+            statut = $3
+          WHERE id = $4
+          `,
+          [
+            Number(enseignant_id),
+            Number(classe_id),
+            statut,
+            existant.rows[0].id,
+          ]
         )
-        DO UPDATE SET
-          enseignant_id = EXCLUDED.enseignant_id,
-          classe_id = EXCLUDED.classe_id,
-          statut = EXCLUDED.statut
-        `,
-        [
-          presence.eleve_id,
-          enseignant_id,
-          classe_id,
-          presence.statut,
-        ]
-      )
+      }
+
+      // ------------------------------------------------
+      // SINON → CRÉER
+      // ------------------------------------------------
+
+      else {
+        await client.query(
+          `
+          INSERT INTO presences (
+            eleve_id,
+            enseignant_id,
+            classe_id,
+            statut,
+            date_appel
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            CURRENT_DATE
+          )
+          `,
+          [
+            eleveId,
+            Number(enseignant_id),
+            Number(classe_id),
+            statut,
+          ]
+        )
+      }
+
+      nombreEnregistres++
     }
 
-    await client.query('COMMIT')
+    // -------------------------------------------------
+    // VÉRIFIER QU'ON A BIEN ENREGISTRÉ DES ÉLÈVES
+    // -------------------------------------------------
 
-    res.json({
+    if (nombreEnregistres === 0) {
+      await client.query('ROLLBACK')
+      transactionCommencee = false
+
+      return res.status(400).json({
+        erreur:
+          'Aucune présence valide à enregistrer.',
+      })
+    }
+
+    // -------------------------------------------------
+    // VALIDER
+    // -------------------------------------------------
+
+    await client.query('COMMIT')
+    transactionCommencee = false
+
+    console.log(
+      `✅ Appel enregistré : ${nombreEnregistres} élève(s), classe ${classe_id}, enseignant ${enseignant_id}`
+    )
+
+    res.status(200).json({
       message:
         "L'appel a été enregistré avec succès.",
+      nombre_enregistres:
+        nombreEnregistres,
     })
+
   } catch (error) {
-    await client.query('ROLLBACK')
+
+    // -------------------------------------------------
+    // ANNULER LA TRANSACTION EN CAS D'ERREUR
+    // -------------------------------------------------
+
+    if (
+      client &&
+      transactionCommencee
+    ) {
+      try {
+        await client.query(
+          'ROLLBACK'
+        )
+      } catch (rollbackError) {
+        console.error(
+          'ERREUR ROLLBACK :',
+          rollbackError
+        )
+      }
+    }
 
     console.error(
-      'ERREUR ENREGISTREMENT PRESENCES :',
+      '❌ ERREUR ENREGISTREMENT PRESENCES :',
       error
     )
 
     res.status(500).json({
       erreur:
         "Impossible d'enregistrer l'appel.",
+      detail:
+        process.env.NODE_ENV !==
+        'production'
+          ? error.message
+          : undefined,
     })
+
   } finally {
-    client.release()
+
+    if (client) {
+      client.release()
+    }
   }
 })
 
@@ -122,282 +329,343 @@ router.post('/', async (req, res) => {
 // APPEL D'UNE CLASSE POUR UNE DATE
 // =====================================================
 
-router.get('/classe/:classeId', async (req, res) => {
-  try {
-    const { classeId } = req.params
+router.get(
+  '/classe/:classeId',
+  async (req, res) => {
+    try {
+      const { classeId } =
+        req.params
 
-    const date =
-      req.query.date ||
-      new Date().toISOString().slice(0, 10)
+      const date =
+        req.query.date ||
+        new Date()
+          .toISOString()
+          .slice(0, 10)
 
-    const resultat = await pool.query(
-      `
-      SELECT
-        p.id,
-        p.eleve_id,
-        p.enseignant_id,
-        p.classe_id,
-        p.statut,
-        p.date_appel,
-        e.nom,
-        e.prenom
-      FROM presences p
-      INNER JOIN eleves e
-        ON e.id = p.eleve_id
-      WHERE p.classe_id = $1
-        AND p.date_appel = $2
-      ORDER BY e.nom ASC, e.prenom ASC
-      `,
-      [Number(classeId), date]
-    )
+      const resultat =
+        await pool.query(
+          `
+          SELECT
+            p.id,
+            p.eleve_id,
+            p.enseignant_id,
+            p.classe_id,
+            p.statut,
+            p.date_appel,
+            e.nom,
+            e.prenom
+          FROM presences p
+          INNER JOIN eleves e
+            ON e.id = p.eleve_id
+          WHERE p.classe_id = $1
+            AND p.date_appel = $2
+          ORDER BY
+            e.nom ASC,
+            e.prenom ASC
+          `,
+          [
+            Number(classeId),
+            date,
+          ]
+        )
 
-    res.json(resultat.rows)
-  } catch (error) {
-    console.error(
-      'ERREUR APPEL CLASSE :',
-      error
-    )
+      res.json(
+        resultat.rows
+      )
 
-    res.status(500).json({
-      erreur:
-        "Impossible de récupérer l'appel.",
-    })
+    } catch (error) {
+
+      console.error(
+        '❌ ERREUR APPEL CLASSE :',
+        error
+      )
+
+      res.status(500).json({
+        erreur:
+          "Impossible de récupérer l'appel.",
+        detail:
+          process.env.NODE_ENV !==
+          'production'
+            ? error.message
+            : undefined,
+      })
+    }
   }
-})
+)
 
 // =====================================================
 // HISTORIQUE DES APPELS
 // =====================================================
 
-router.get('/historique', async (req, res) => {
-  try {
-    const {
-      section,
-      classe_id,
-      date_debut,
-      date_fin,
-    } = req.query
+router.get(
+  '/historique',
+  async (req, res) => {
+    try {
+      const {
+        section,
+        classe_id,
+        date_debut,
+        date_fin,
+      } = req.query
 
-    const conditions = []
-    const valeurs = []
-    let numero = 1
+      const conditions = []
+      const valeurs = []
 
-    // -----------------------------
-    // FILTRE SECTION
-    // -----------------------------
+      let numero = 1
 
-    if (section) {
-      conditions.push(
-        `c.section = $${numero}`
-      )
+      // -------------------------------------------------
+      // FILTRE SECTION
+      // -------------------------------------------------
 
-      valeurs.push(section)
-      numero++
-    }
+      if (section) {
+        conditions.push(
+          `c.section = $${numero}`
+        )
 
-    // -----------------------------
-    // FILTRE CLASSE
-    // -----------------------------
+        valeurs.push(section)
+        numero++
+      }
 
-    if (classe_id) {
-      conditions.push(
-        `p.classe_id = $${numero}`
-      )
+      // -------------------------------------------------
+      // FILTRE CLASSE
+      // -------------------------------------------------
 
-      valeurs.push(Number(classe_id))
-      numero++
-    }
+      if (classe_id) {
+        conditions.push(
+          `p.classe_id = $${numero}`
+        )
 
-    // -----------------------------
-    // DATE DEBUT
-    // -----------------------------
+        valeurs.push(
+          Number(classe_id)
+        )
 
-    if (date_debut) {
-      conditions.push(
-        `p.date_appel >= $${numero}`
-      )
+        numero++
+      }
 
-      valeurs.push(date_debut)
-      numero++
-    }
+      // -------------------------------------------------
+      // DATE DÉBUT
+      // -------------------------------------------------
 
-    // -----------------------------
-    // DATE FIN
-    // -----------------------------
+      if (date_debut) {
+        conditions.push(
+          `p.date_appel >= $${numero}`
+        )
 
-    if (date_fin) {
-      conditions.push(
-        `p.date_appel <= $${numero}`
-      )
+        valeurs.push(date_debut)
+        numero++
+      }
 
-      valeurs.push(date_fin)
-      numero++
-    }
+      // -------------------------------------------------
+      // DATE FIN
+      // -------------------------------------------------
 
-    const where =
-      conditions.length > 0
-        ? `WHERE ${conditions.join(' AND ')}`
-        : ''
+      if (date_fin) {
+        conditions.push(
+          `p.date_appel <= $${numero}`
+        )
 
-    /*
-      IMPORTANT :
-      On ne dépend PAS de utilisateurs ici.
-      L'historique fonctionnera même si certaines
-      informations enseignant sont absentes.
-    */
+        valeurs.push(date_fin)
+        numero++
+      }
 
-    const resultat = await pool.query(
-      `
-      SELECT
-        p.date_appel,
-        p.classe_id,
-        c.nom AS classe_nom,
-        c.section AS classe_section,
-        p.enseignant_id,
+      const where =
+        conditions.length > 0
+          ? `WHERE ${conditions.join(
+              ' AND '
+            )}`
+          : ''
 
-        COUNT(*) AS total_eleves,
+      // -------------------------------------------------
+      // REQUÊTE HISTORIQUE
+      // -------------------------------------------------
 
-        COUNT(
-          CASE
-            WHEN p.statut = 'present'
-            THEN 1
-          END
-        ) AS presents,
+      const resultat =
+        await pool.query(
+          `
+          SELECT
+            p.date_appel,
+            p.classe_id,
+            c.nom AS classe_nom,
+            c.section AS classe_section,
+            p.enseignant_id,
 
-        COUNT(
-          CASE
-            WHEN p.statut = 'absent'
-            THEN 1
-          END
-        ) AS absents
+            COUNT(*) AS total_eleves,
 
-      FROM presences p
+            COUNT(
+              CASE
+                WHEN p.statut = 'present'
+                THEN 1
+              END
+            ) AS presents,
 
-      INNER JOIN classes c
-        ON c.id = p.classe_id
+            COUNT(
+              CASE
+                WHEN p.statut = 'absent'
+                THEN 1
+              END
+            ) AS absents
 
-      ${where}
+          FROM presences p
 
-      GROUP BY
-        p.date_appel,
-        p.classe_id,
-        c.nom,
-        c.section,
-        p.enseignant_id
+          INNER JOIN classes c
+            ON c.id = p.classe_id
 
-      ORDER BY
-        p.date_appel DESC,
-        c.section ASC,
-        c.nom ASC
-      `,
-      valeurs
-    )
+          ${where}
 
-    const historique =
-      resultat.rows.map((ligne) => {
-        const total =
-          Number(ligne.total_eleves)
+          GROUP BY
+            p.date_appel,
+            p.classe_id,
+            c.nom,
+            c.section,
+            p.enseignant_id
 
-        const presents =
-          Number(ligne.presents)
+          ORDER BY
+            p.date_appel DESC,
+            c.section ASC,
+            c.nom ASC
+          `,
+          valeurs
+        )
 
-        const absents =
-          Number(ligne.absents)
+      // -------------------------------------------------
+      // CALCUL DU TAUX
+      // -------------------------------------------------
 
-        const taux =
-          total > 0
-            ? Math.round(
-                (presents / total) * 100
+      const historique =
+        resultat.rows.map(
+          (ligne) => {
+
+            const total =
+              Number(
+                ligne.total_eleves
               )
-            : 0
 
-        return {
-          date_appel:
-            ligne.date_appel,
+            const presents =
+              Number(
+                ligne.presents
+              )
 
-          classe_id:
-            ligne.classe_id,
+            const absents =
+              Number(
+                ligne.absents
+              )
 
-          classe_nom:
-            ligne.classe_nom,
+            const taux =
+              total > 0
+                ? Math.round(
+                    (presents /
+                      total) *
+                      100
+                  )
+                : 0
 
-          classe_section:
-            ligne.classe_section,
+            return {
+              date_appel:
+                ligne.date_appel,
 
-          enseignant_id:
-            ligne.enseignant_id,
+              classe_id:
+                ligne.classe_id,
 
-          total_eleves:
-            total,
+              classe_nom:
+                ligne.classe_nom,
 
-          presents,
+              classe_section:
+                ligne.classe_section,
 
-          absents,
+              enseignant_id:
+                ligne.enseignant_id,
 
-          taux_presence:
-            taux,
-        }
+              total_eleves:
+                total,
+
+              presents,
+
+              absents,
+
+              taux_presence:
+                taux,
+            }
+          }
+        )
+
+      console.log(
+        '✅ HISTORIQUE APPELS :',
+        historique
+      )
+
+      res.status(200).json(
+        historique
+      )
+
+    } catch (error) {
+
+      console.error(
+        '❌ ERREUR SQL HISTORIQUE APPELS :',
+        error
+      )
+
+      res.status(500).json({
+        erreur:
+          "Impossible de récupérer l'historique des appels.",
+
+        detail:
+          process.env.NODE_ENV !==
+          'production'
+            ? error.message
+            : undefined,
       })
-
-    console.log(
-      'HISTORIQUE APPELS :',
-      historique
-    )
-
-    res.status(200).json(historique)
-
-  } catch (error) {
-
-    console.error(
-      'ERREUR SQL HISTORIQUE APPELS :',
-      error
-    )
-
-    res.status(500).json({
-      erreur:
-        "Impossible de récupérer l'historique des appels.",
-      detail:
-        process.env.NODE_ENV !== 'production'
-          ? error.message
-          : undefined,
-    })
+    }
   }
-})
+)
 
 // =====================================================
 // HISTORIQUE GLOBAL SIMPLE
 // =====================================================
 
-router.get('/', async (req, res) => {
-  try {
-    const resultat = await pool.query(
-      `
-      SELECT
-        p.id,
-        p.eleve_id,
-        p.enseignant_id,
-        p.classe_id,
-        p.statut,
-        p.date_appel
-      FROM presences p
-      ORDER BY
-        p.date_appel DESC,
-        p.id DESC
-      `
-    )
+router.get(
+  '/',
+  async (req, res) => {
+    try {
 
-    res.json(resultat.rows)
-  } catch (error) {
-    console.error(
-      'ERREUR GET PRESENCES :',
-      error
-    )
+      const resultat =
+        await pool.query(
+          `
+          SELECT
+            p.id,
+            p.eleve_id,
+            p.enseignant_id,
+            p.classe_id,
+            p.statut,
+            p.date_appel
+          FROM presences p
+          ORDER BY
+            p.date_appel DESC,
+            p.id DESC
+          `
+        )
 
-    res.status(500).json({
-      erreur:
-        'Impossible de récupérer les présences.',
-    })
+      res.json(
+        resultat.rows
+      )
+
+    } catch (error) {
+
+      console.error(
+        '❌ ERREUR GET PRESENCES :',
+        error
+      )
+
+      res.status(500).json({
+        erreur:
+          'Impossible de récupérer les présences.',
+        detail:
+          process.env.NODE_ENV !==
+          'production'
+            ? error.message
+            : undefined,
+      })
+    }
   }
-})
+)
 
 export default router
