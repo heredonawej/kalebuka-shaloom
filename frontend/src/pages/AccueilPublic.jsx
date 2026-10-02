@@ -13,6 +13,10 @@ import {
   Sparkles,
   CalendarDays,
   Loader2,
+  Megaphone,
+  PartyPopper,
+  Info,
+  FileText,
 } from 'lucide-react'
 
 function AccueilPublic() {
@@ -77,6 +81,86 @@ function AccueilPublic() {
         year: 'numeric',
       }
     )
+  }
+
+  // =====================================================
+  // APPARENCE DES COMMUNICATIONS
+  // =====================================================
+
+  const getCommunicationStyle = (categorie) => {
+    switch (categorie) {
+      case 'Annonce':
+        return {
+          icon: Megaphone,
+          label: 'ANNONCE',
+          bandeau:
+            'from-indigo-600 via-blue-600 to-indigo-700',
+          fond: 'bg-indigo-50',
+          iconBg: 'bg-indigo-100',
+          iconColor: 'text-indigo-600',
+          badge:
+            'bg-indigo-100 text-indigo-700',
+          titre: 'text-indigo-950',
+        }
+
+      case 'Événement':
+        return {
+          icon: PartyPopper,
+          label: 'ÉVÉNEMENT',
+          bandeau:
+            'from-violet-600 via-purple-600 to-fuchsia-600',
+          fond: 'bg-purple-50',
+          iconBg: 'bg-purple-100',
+          iconColor: 'text-purple-600',
+          badge:
+            'bg-purple-100 text-purple-700',
+          titre: 'text-purple-950',
+        }
+
+      case 'Information':
+        return {
+          icon: Info,
+          label: 'INFORMATION',
+          bandeau:
+            'from-sky-500 via-blue-500 to-cyan-500',
+          fond: 'bg-sky-50',
+          iconBg: 'bg-sky-100',
+          iconColor: 'text-sky-600',
+          badge:
+            'bg-sky-100 text-sky-700',
+          titre: 'text-sky-950',
+        }
+
+      case 'Communiqué':
+        return {
+          icon: FileText,
+          label: 'COMMUNIQUÉ',
+          bandeau:
+            'from-slate-700 via-slate-800 to-slate-900',
+          fond: 'bg-slate-50',
+          iconBg: 'bg-slate-100',
+          iconColor: 'text-slate-700',
+          badge:
+            'bg-slate-100 text-slate-700',
+          titre: 'text-slate-950',
+        }
+
+      default:
+        return {
+          icon: Newspaper,
+          label:
+            categorie?.toUpperCase() ||
+            'ACTUALITÉ',
+          bandeau:
+            'from-indigo-600 via-blue-600 to-blue-700',
+          fond: 'bg-indigo-50',
+          iconBg: 'bg-indigo-100',
+          iconColor: 'text-indigo-600',
+          badge:
+            'bg-indigo-100 text-indigo-700',
+          titre: 'text-slate-950',
+        }
+    }
   }
 
   return (
@@ -1039,6 +1123,7 @@ function AccueilPublic() {
                   text-3xl
                   font-black
                   text-slate-900
+                  sm:text-4xl
                 ">
                   Les nouvelles de l'école
                 </h2>
@@ -1141,117 +1226,164 @@ function AccueilPublic() {
               <div className="
                 mt-8
                 grid
-                gap-5
+                gap-6
                 md:grid-cols-2
                 lg:grid-cols-3
               ">
 
                 {communications.map(
-                  (communication) => (
+                  (communication) => {
 
-                    <article
-                      key={communication.id}
-                      className="
-                        group
-                        overflow-hidden
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                        transition
-                        hover:-translate-y-1
-                        hover:shadow-xl
-                      "
-                    >
+                    const style =
+                      getCommunicationStyle(
+                        communication.categorie
+                      )
 
-                      {/* BANDEAU */}
+                    const Icon =
+                      style.icon
 
-                      <div className="
-                        h-2
-                        bg-gradient-to-r
-                        from-indigo-600
-                        to-blue-500
-                      " />
+                    return (
+                      <article
+                        key={communication.id}
+                        className="
+                          group
+                          relative
+                          overflow-hidden
+                          rounded-[28px]
+                          border
+                          border-slate-200
+                          bg-white
+                          shadow-sm
+                          transition
+                          duration-300
+                          hover:-translate-y-1
+                          hover:shadow-2xl
+                        "
+                      >
 
-                      <div className="p-6">
+                        {/* BANDEAU COULEUR */}
 
-                        <div className="
-                          flex
-                          flex-wrap
-                          items-center
-                          justify-between
-                          gap-2
-                        ">
+                        <div className={`
+                          h-2
+                          bg-gradient-to-r
+                          ${style.bandeau}
+                        `} />
 
-                          <span className="
-                            inline-flex
-                            rounded-full
-                            bg-indigo-50
-                            px-3
-                            py-1.5
-                            text-xs
-                            font-bold
-                            text-indigo-700
+                        <div className="p-6">
+
+                          {/* ICÔNE + CATÉGORIE */}
+
+                          <div className="
+                            flex
+                            items-start
+                            justify-between
+                            gap-4
                           ">
-                            {communication.categorie}
-                          </span>
 
-                          <span className="
-                            inline-flex
+                            <div className={`
+                              flex
+                              h-14
+                              w-14
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-2xl
+                              ${style.iconBg}
+                              ${style.iconColor}
+                              transition
+                              duration-300
+                              group-hover:scale-105
+                            `}>
+                              <Icon
+                                size={25}
+                                strokeWidth={2}
+                              />
+                            </div>
+
+                            <span className={`
+                              rounded-full
+                              px-3
+                              py-1.5
+                              text-[10px]
+                              font-black
+                              tracking-wider
+                              ${style.badge}
+                            `}>
+                              {style.label}
+                            </span>
+
+                          </div>
+
+                          {/* DATE */}
+
+                          <div className="
+                            mt-5
+                            flex
                             items-center
-                            gap-1.5
+                            gap-2
                             text-xs
+                            font-medium
                             text-slate-400
                           ">
-                            <CalendarDays size={14} />
+                            <CalendarDays
+                              size={14}
+                            />
 
+                            Publié le{' '}
                             {formaterDate(
                               communication.date_publication
                             )}
-                          </span>
+                          </div>
+
+                          {/* TITRE */}
+
+                          <h3 className={`
+                            mt-4
+                            text-xl
+                            font-black
+                            leading-tight
+                            ${style.titre}
+                          `}>
+                            {communication.titre}
+                          </h3>
+
+                          {/* CONTENU */}
+
+                          <p className="
+                            mt-4
+                            whitespace-pre-line
+                            text-sm
+                            leading-7
+                            text-slate-600
+                          ">
+                            {communication.contenu}
+                          </p>
+
+                          {/* BAS DE CARTE */}
+
+                          <div className={`
+                            mt-6
+                            flex
+                            items-center
+                            gap-2
+                            rounded-2xl
+                            ${style.fond}
+                            px-4
+                            py-3
+                            text-xs
+                            font-bold
+                            ${style.iconColor}
+                          `}>
+                            <Icon size={15} />
+
+                            Communication officielle
+                          </div>
 
                         </div>
 
-                        <h3 className="
-                          mt-5
-                          text-xl
-                          font-extrabold
-                          leading-tight
-                          text-slate-900
-                        ">
-                          {communication.titre}
-                        </h3>
-
-                        <p className="
-                          mt-3
-                          whitespace-pre-line
-                          text-sm
-                          leading-6
-                          text-slate-600
-                        ">
-                          {communication.contenu}
-                        </p>
-
-                        <div className="
-                          mt-5
-                          flex
-                          items-center
-                          gap-2
-                          text-sm
-                          font-bold
-                          text-indigo-600
-                        ">
-                          <Newspaper size={16} />
-
-                          Communication officielle
-                        </div>
-
-                      </div>
-
-                    </article>
-
-                  )
+                      </article>
+                    )
+                  }
                 )}
 
               </div>
