@@ -324,6 +324,49 @@ router.post('/', async (req, res) => {
     }
   }
 })
+// =====================================================
+// RÉCUPÉRER L'HISTORIQUE DES PRÉSENCES D'UN ÉLÈVE
+// À placer AVANT router.get('/classe/:classeId', ...)
+// =====================================================
+
+router.get('/eleve/:eleveId', async (req, res) => {
+  try {
+    const { eleveId } = req.params
+
+    const resultat = await pool.query(
+      `
+      SELECT
+        p.id,
+        p.eleve_id,
+        p.classe_id,
+        p.statut,
+        p.date_appel,
+        c.nom AS classe_nom,
+        c.section AS classe_section
+      FROM presences p
+      LEFT JOIN classes c
+        ON p.classe_id = c.id
+      WHERE p.eleve_id = $1
+      ORDER BY p.date_appel DESC, p.id DESC
+      `,
+      [eleveId]
+    )
+
+    res.json(resultat.rows)
+
+  } catch (err) {
+    console.error(
+      'Erreur récupération présences élève :',
+      err
+    )
+
+    res.status(500).json({
+      erreur:
+        'Impossible de récupérer les présences de cet élève.'
+    })
+  }
+})
+
 
 // =====================================================
 // APPEL D'UNE CLASSE POUR UNE DATE

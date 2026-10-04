@@ -18,6 +18,10 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
+  Eye,
+  ArrowLeft,
+  ClipboardList,
+  FileText,
 } from 'lucide-react'
 import { API_URL } from '../api'
 
@@ -104,6 +108,54 @@ function ElevesAdmin() {
   const [rechercheDate, setRechercheDate] =
     useState('')
   const [sectionActive, setSectionActive] = useState('Maternelle')
+
+  // =====================================================
+  // DOSSIER DE L'ÉLÈVE
+  // =====================================================
+
+  const [eleveSelectionne, setEleveSelectionne] = useState(null)
+  const [presencesEleve, setPresencesEleve] = useState([])
+  const [chargementPresencesEleve, setChargementPresencesEleve] = useState(false)
+  const [erreurPresencesEleve, setErreurPresencesEleve] = useState('')
+
+  // =====================================================
+  // PRÉSENCES DU DOSSIER ÉLÈVE
+  // =====================================================
+
+  const chargerPresencesEleve = async (eleve) => {
+    if (!eleve?.id) return
+
+    try {
+      setChargementPresencesEleve(true)
+      setErreurPresencesEleve('')
+
+      const response = await fetch(
+        `${API_URL}/api/presences/eleve/${eleve.id}`
+      )
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data.erreur ||
+            'Impossible de récupérer les présences de l’élève.'
+        )
+      }
+
+      setPresencesEleve(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('Erreur présences élève :', err)
+      setPresencesEleve([])
+      setErreurPresencesEleve(err.message)
+    } finally {
+      setChargementPresencesEleve(false)
+    }
+  }
+
+  const ouvrirDossierEleve = (eleve) => {
+    setEleveSelectionne(eleve)
+    chargerPresencesEleve(eleve)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // =====================================================
   // ÉTATS
@@ -693,6 +745,245 @@ const elevesFiltresSection = useMemo(() => {
 
 }, [elevesFiltres, sectionActive])
 
+
+  // =====================================================
+  // AFFICHAGE DU DOSSIER DE L'ÉLÈVE
+  // =====================================================
+
+  if (eleveSelectionne) {
+    const totalPresencesEleve = presencesEleve.length
+    const totalPresentsEleve = presencesEleve.filter((p) => p.statut === 'present').length
+    const totalAbsentsEleve = presencesEleve.filter((p) => p.statut === 'absent').length
+    const totalRetardsEleve = presencesEleve.filter((p) => p.statut === 'retard').length
+    const totalJustifiesEleve = presencesEleve.filter((p) => ['justifie', 'justifiée'].includes(String(p.statut || '').toLowerCase())).length
+    const tauxPresenceEleve = totalPresencesEleve > 0 ? Math.round((totalPresentsEleve / totalPresencesEleve) * 100) : 0
+    const eleve = eleveSelectionne
+
+    const formaterDate = (date) => {
+      if (!date) return '—'
+      const valeur = String(date).substring(0, 10)
+      const [annee, mois, jour] = valeur.split('-')
+      if (!annee || !mois || !jour) return '—'
+      return `${jour}/${mois}/${annee}`
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-50 p-3 sm:p-5 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <button
+            type="button"
+            onClick={() => setEleveSelectionne(null)}
+            className="mb-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <ArrowLeft size={17} />
+            Retour aux élèves
+          </button>
+
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 p-5 text-white sm:p-7">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-xl font-bold ring-1 ring-white/20">
+                    {eleve.prenom?.charAt(0)?.toUpperCase()}
+                    {eleve.nom?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-blue-100">
+                      Dossier scolaire
+                    </p>
+                    <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
+                      {eleve.prenom} {eleve.nom}
+                    </h1>
+                    <p className="mt-1 text-sm text-blue-100">
+                      {eleve.classe_nom || 'Classe non définie'}
+                      {eleve.classe_section ? ` • ${eleve.classe_section}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15">
+                  <p className="text-xs text-blue-100">Inscription</p>
+                  <p className="mt-1 font-bold">{formaterDate(eleve.date_inscription)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-2">
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-blue-100 p-2.5 text-blue-600">
+                    <UserRound size={19} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Informations personnelles</h2>
+                    <p className="text-xs text-slate-500">Identité de l'élève</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[
+                    ['Nom', eleve.nom],
+                    ['Prénom', eleve.prenom],
+                    ['Sexe', eleve.sexe],
+                    ['Date de naissance', formaterDate(eleve.date_naissance)],
+                    ['Lieu de naissance', eleve.lieu_naissance],
+                    ['Adresse', eleve.adresse],
+                  ].map(([label, valeur]) => (
+                    <div key={label} className="rounded-xl bg-white p-3.5 ring-1 ring-slate-100">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{valeur || '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-600">
+                    <School size={19} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Scolarité</h2>
+                    <p className="text-xs text-slate-500">Situation scolaire actuelle</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                    <p className="text-xs text-slate-400">Section</p>
+                    <p className="mt-1 font-bold text-slate-800">{eleve.classe_section || '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                    <p className="text-xs text-slate-400">Classe</p>
+                    <p className="mt-1 font-bold text-slate-800">{eleve.classe_nom || '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                    <p className="text-xs text-slate-400">Date d'inscription</p>
+                    <p className="mt-1 font-bold text-slate-800">{formaterDate(eleve.date_inscription)}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-violet-100 p-2.5 text-violet-600">
+                    <Phone size={19} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Responsable / tuteur</h2>
+                    <p className="text-xs text-slate-500">Personne à contacter</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                    <p className="text-xs text-slate-400">Nom du tuteur</p>
+                    <p className="mt-1 font-bold text-slate-800">{eleve.nom_tuteur || '—'}</p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4 ring-1 ring-slate-100">
+                    <p className="text-xs text-slate-400">Téléphone</p>
+                    <p className="mt-1 font-bold text-slate-800">{eleve.telephone_tuteur || '—'}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-xl bg-amber-100 p-2.5 text-amber-600">
+                    <ClipboardList size={19} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Suivi scolaire</h2>
+                    <p className="text-xs text-slate-500">Les données seront intégrées progressivement</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-emerald-900">Présences</p>
+                        <p className="mt-1 text-xs text-emerald-700">Suivi des appels enregistrés par l’enseignant</p>
+                      </div>
+                      {chargementPresencesEleve && <RefreshCw size={18} className="animate-spin text-emerald-600" />}
+                    </div>
+
+                    {erreurPresencesEleve ? (
+                      <p className="mt-3 rounded-xl bg-white p-3 text-xs text-red-600">{erreurPresencesEleve}</p>
+                    ) : (
+                      <>
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="rounded-xl bg-white p-3"><p className="text-[11px] text-slate-400">Appels</p><p className="mt-1 text-lg font-bold text-slate-900">{totalPresencesEleve}</p></div>
+                          <div className="rounded-xl bg-white p-3"><p className="text-[11px] text-slate-400">Présents</p><p className="mt-1 text-lg font-bold text-emerald-600">{totalPresentsEleve}</p></div>
+                          <div className="rounded-xl bg-white p-3"><p className="text-[11px] text-slate-400">Absents</p><p className="mt-1 text-lg font-bold text-red-600">{totalAbsentsEleve}</p></div>
+                          <div className="rounded-xl bg-white p-3"><p className="text-[11px] text-slate-400">Taux</p><p className="mt-1 text-lg font-bold text-blue-600">{tauxPresenceEleve}%</p></div>
+                        </div>
+
+                        {(totalRetardsEleve > 0 || totalJustifiesEleve > 0) && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {totalRetardsEleve > 0 && <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">🟠 {totalRetardsEleve} retard(s)</span>}
+                            {totalJustifiesEleve > 0 && <span className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700">🟣 {totalJustifiesEleve} justifiée(s)</span>}
+                          </div>
+                        )}
+
+                        <div className="mt-4">
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Derniers appels</p>
+                          {presencesEleve.length === 0 ? (
+                            <div className="rounded-xl bg-white p-4 text-center text-xs text-slate-500">Aucun appel enregistré pour cet élève.</div>
+                          ) : (
+                            <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                              {presencesEleve.slice(0, 10).map((presence) => {
+                                const statut = String(presence.statut || '').toLowerCase()
+                                const present = statut === 'present'
+                                const absent = statut === 'absent'
+                                const label = present ? 'Présent' : absent ? 'Absent' : (presence.statut || '—')
+                                const classeStatut = present ? 'bg-emerald-100 text-emerald-700' : absent ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                return (
+                                  <div key={presence.id} className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 ring-1 ring-slate-100">
+                                    <div>
+                                      <p className="text-sm font-semibold text-slate-800">{formaterDate(presence.date_appel)}</p>
+                                      <p className="text-[11px] text-slate-400">{presence.classe_nom || eleve.classe_nom || 'Classe'}</p>
+                                    </div>
+                                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${classeStatut}`}>{label}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm font-bold text-slate-700">Résultats</p>
+                    <p className="mt-1 text-xs text-slate-500">Notes et moyennes de l’élève</p>
+                  </div>
+                  <div className="rounded-2xl bg-blue-50 p-4">
+                    <p className="text-sm font-bold text-blue-900">Bulletin scolaire</p>
+                    <p className="mt-1 text-xs text-blue-700">Le bulletin trimestriel sera intégré avec les notes.</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50/70 p-4 sm:p-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setEleveSelectionne(null)
+                  commencerModification(eleve)
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                <Pencil size={17} />
+                Modifier les informations
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // =====================================================
   // AFFICHAGE
@@ -1886,7 +2177,16 @@ const elevesFiltresSection = useMemo(() => {
 
                         {/* ACTIONS */}
 
-                        <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+
+                          <button
+                            type="button"
+                            onClick={() => ouvrirDossierEleve(eleve)}
+                            className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            <Eye size={16} />
+                            Dossier
+                          </button>
 
                           <button
                             type="button"
@@ -2096,6 +2396,15 @@ const elevesFiltresSection = useMemo(() => {
                             <td className="px-5 py-4">
 
                               <div className="flex justify-end gap-2">
+
+                                <button
+                                  type="button"
+                                  onClick={() => ouvrirDossierEleve(eleve)}
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
+                                  title="Voir le dossier"
+                                >
+                                  <Eye size={17} />
+                                </button>
 
                                 <button
                                   type="button"
