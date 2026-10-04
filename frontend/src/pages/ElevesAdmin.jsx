@@ -24,6 +24,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { API_URL } from '../api'
+import jsPDF from 'jspdf'
 
 
 // =====================================================
@@ -61,6 +62,8 @@ function ElevesAdmin() {
 
   const [classes, setClasses] = useState([])
   const [eleves, setEleves] = useState([])
+  const [notesEleve, setNotesEleve] = useState([])
+  const [chargementNotes, setChargementNotes] = useState(false)
 
   // =====================================================
   // FORMULAIRE
@@ -154,6 +157,7 @@ function ElevesAdmin() {
   const ouvrirDossierEleve = (eleve) => {
     setEleveSelectionne(eleve)
     chargerPresencesEleve(eleve)
+    chargerNotesEleve(eleve.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -744,7 +748,144 @@ const elevesFiltresSection = useMemo(() => {
   )
 
 }, [elevesFiltres, sectionActive])
+const chargerNotesEleve = async (eleveId) => {
+  try {
+    setChargementNotes(true)
 
+    const response = await fetch(
+      `${API_URL}/api/notes/eleve/${eleveId}`
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.erreur || "Impossible de récupérer les notes."
+      )
+    }
+
+    setNotesEleve(Array.isArray(data) ? data : [])
+  } catch (error) {
+    console.error("Erreur notes :", error)
+    setNotesEleve([])
+  } finally {
+    setChargementNotes(false)
+  }
+}
+
+
+  // =====================================================
+  // PDF DU DOSSIER — AJOUT UNIQUEMENT
+  // =====================================================
+
+  const telechargerDossierPDF = (eleve) => {
+    const doc = new jsPDF()
+    const marge = 18
+    let y = 20
+
+    const ajouterLigne = (label, valeur) => {
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${label} :`, marge, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(valeur || '—'), marge + 48, y)
+      y += 7
+    }
+
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text('FICHE SCOLAIRE DE L’ÉLÈVE', marge, y)
+    y += 12
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`${eleve.prenom || ''} ${eleve.nom || ''}`, marge, y)
+    y += 10
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+
+    ajouterLigne('Section', eleve.classe_section)
+    ajouterLigne('Classe', eleve.classe_nom)
+    ajouterLigne('Sexe', eleve.sexe)
+    ajouterLigne('Date naissance', eleve.date_naissance ? String(eleve.date_naissance).substring(0, 10) : '—')
+    ajouterLigne('Lieu naissance', eleve.lieu_naissance)
+    ajouterLigne('Adresse', eleve.adresse)
+    ajouterLigne('Tuteur', eleve.nom_tuteur)
+    ajouterLigne('Téléphone', eleve.telephone_tuteur)
+    ajouterLigne('Inscription', eleve.date_inscription ? String(eleve.date_inscription).substring(0, 10) : '—')
+
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text('Présences', marge, y)
+    y += 8
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    const total = presencesEleve.length
+    const presents = presencesEleve.filter((p) => p.statut === 'present').length
+    const absents = presencesEleve.filter((p) => p.statut === 'absent').length
+    const taux = total > 0 ? Math.round((presents / total) * 100) : 0
+
+    ajouterLigne('Appels', total)
+    ajouterLigne('Présents', presents)
+    ajouterLigne('Absents', absents)
+    ajouterLigne('Taux présence', `${taux}%`)
+
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text('Notes', marge, y)
+    y += 8
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+
+    if (notesEleve.length === 0) {
+      doc.text('Aucune note enregistrée.', marge, y)
+      y += 7
+    } else {
+      notesEleve.forEach((note) => {
+        if (y > 275) {
+          doc.addPage()
+          y = 20
+        }
+
+        const baremes = {
+          Exercice: 10,
+          Interrogation: 10,
+          Devoir: 10,
+          Examen: 20,
+        }
+
+        const bareme = Number(baremes[note.type_eval] || 20)
+        const valeur = Number(note.valeur || 0)
+        const sur20 = bareme > 0 ? ((valeur / bareme) * 20).toFixed(2) : '0.00'
+
+        doc.text(
+          `${note.matiere || '—'} | ${note.type_eval || '—'} | ${valeur}/${bareme} | ${sur20}/20`,
+          marge,
+          y
+        )
+        y += 6
+      })
+    }
+
+    doc.setFontSize(8)
+    doc.setTextColor(100)
+    doc.text(
+      'Document généré depuis Kalebuka Shaloom',
+      marge,
+      290
+    )
+
+    const nomFichier = `dossier-${(eleve.prenom || 'eleve')}-${(eleve.nom || '').trim()}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+
+    doc.save(`${nomFichier || 'eleve'}.pdf`)
+  }
 
   // =====================================================
   // AFFICHAGE DU DOSSIER DE L'ÉLÈVE
@@ -954,9 +1095,182 @@ const elevesFiltresSection = useMemo(() => {
                     )}
                   </div>
 
-                  <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm font-bold text-slate-700">Résultats</p>
-                    <p className="mt-1 text-xs text-slate-500">Notes et moyennes de l’élève</p>
+                  <div className="sm:col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-indigo-900">Résultats scolaires</p>
+                        <p className="mt-1 text-xs text-indigo-700">Notes et moyennes de l’élève</p>
+                      </div>
+                      {chargementNotes && (
+                        <RefreshCw size={18} className="animate-spin text-indigo-600" />
+                      )}
+                    </div>
+
+                    {!chargementNotes && notesEleve.length === 0 ? (
+                      <div className="mt-4 rounded-xl bg-white p-5 text-center">
+                        <FileText size={28} className="mx-auto text-slate-300" />
+                        <p className="mt-2 text-sm font-semibold text-slate-600">
+                          Aucune note enregistrée
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Les évaluations de cet élève apparaîtront ici.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {(() => {
+                          const baremes = {
+                            Exercice: 10,
+                            Interrogation: 10,
+                            Devoir: 10,
+                            Examen: 20,
+                          }
+
+                          const notesNormalisees = notesEleve.map((note) => {
+                            const bareme = Number(baremes[note.type_eval] || 20)
+                            const valeur = Number(note.valeur || 0)
+                            return {
+                              ...note,
+                              bareme,
+                              valeur,
+                              sur20: bareme > 0 ? (valeur / bareme) * 20 : 0,
+                            }
+                          })
+
+                          const matieres = [
+                            ...new Set(
+                              notesNormalisees
+                                .map((note) => note.matiere)
+                                .filter(Boolean)
+                            ),
+                          ]
+
+                          const moyennes = matieres.map((matiere) => {
+                            const notesMatiere = notesNormalisees.filter(
+                              (note) => note.matiere === matiere
+                            )
+
+                            const moyenne =
+                              notesMatiere.length > 0
+                                ? notesMatiere.reduce(
+                                    (total, note) => total + note.sur20,
+                                    0
+                                  ) / notesMatiere.length
+                                : 0
+
+                            return {
+                              matiere,
+                              moyenne,
+                            }
+                          })
+
+                          const moyenneGenerale =
+                            moyennes.length > 0
+                              ? moyennes.reduce(
+                                  (total, item) => total + item.moyenne,
+                                  0
+                                ) / moyennes.length
+                              : 0
+
+                          return (
+                            <>
+                              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                <div className="rounded-xl bg-white p-3">
+                                  <p className="text-[11px] text-slate-400">
+                                    Évaluations
+                                  </p>
+                                  <p className="mt-1 text-xl font-bold text-slate-900">
+                                    {notesEleve.length}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-white p-3">
+                                  <p className="text-[11px] text-slate-400">
+                                    Matières
+                                  </p>
+                                  <p className="mt-1 text-xl font-bold text-indigo-600">
+                                    {matieres.length}
+                                  </p>
+                                </div>
+
+                                <div className="col-span-2 rounded-xl bg-white p-3 sm:col-span-1">
+                                  <p className="text-[11px] text-slate-400">
+                                    Moyenne générale
+                                  </p>
+                                  <p className="mt-1 text-xl font-bold text-emerald-600">
+                                    {moyenneGenerale.toFixed(2)}/20
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 overflow-x-auto rounded-xl bg-white">
+                                <table className="min-w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 text-left">
+                                      <th className="px-4 py-3 font-bold text-slate-500">
+                                        Matière
+                                      </th>
+                                      <th className="px-4 py-3 font-bold text-slate-500">
+                                        Évaluation
+                                      </th>
+                                      <th className="px-4 py-3 font-bold text-slate-500">
+                                        Note
+                                      </th>
+                                      <th className="px-4 py-3 font-bold text-slate-500">
+                                        /20
+                                      </th>
+                                    </tr>
+                                  </thead>
+
+                                  <tbody className="divide-y divide-slate-100">
+                                    {notesNormalisees.map((note) => (
+                                      <tr key={note.id}>
+                                        <td className="px-4 py-3 font-semibold text-slate-800">
+                                          {note.matiere || '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-600">
+                                          {note.type_eval || '—'}
+                                        </td>
+                                        <td className="px-4 py-3 font-semibold text-slate-700">
+                                          {note.valeur}/{note.bareme}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <span className="rounded-lg bg-indigo-50 px-2.5 py-1 font-bold text-indigo-700">
+                                            {note.sur20.toFixed(2)}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="mt-4">
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                  Moyennes par matière
+                                </p>
+
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {moyennes.map((item) => (
+                                    <div
+                                      key={item.matiere}
+                                      className="flex items-center justify-between rounded-xl bg-white p-3 ring-1 ring-slate-100"
+                                    >
+                                      <span className="text-sm font-semibold text-slate-700">
+                                        {item.matiere}
+                                      </span>
+                                      <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700">
+                                        {item.moyenne.toFixed(2)}/20
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </>
+                    )}
                   </div>
                   <div className="rounded-2xl bg-blue-50 p-4">
                     <p className="text-sm font-bold text-blue-900">Bulletin scolaire</p>
@@ -967,17 +1281,28 @@ const elevesFiltresSection = useMemo(() => {
             </div>
 
             <div className="border-t border-slate-100 bg-slate-50/70 p-4 sm:p-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setEleveSelectionne(null)
-                  commencerModification(eleve)
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
-              >
-                <Pencil size={17} />
-                Modifier les informations
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => telechargerDossierPDF(eleve)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  <FileText size={17} />
+                  Télécharger le PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEleveSelectionne(null)
+                    commencerModification(eleve)
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  <Pencil size={17} />
+                  Modifier les informations
+                </button>
+              </div>
             </div>
           </div>
         </div>
